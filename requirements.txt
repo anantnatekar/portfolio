@@ -1,0 +1,11 @@
+llama-index-core
+llama-index-readers-databricks
+llama-index-llms-bedrock
+llama-index-embeddings-bedrock
+boto3
+pandas
+xlsxwriter
+yfinance
+numpy
+llama-index-readers-sec-filings
+llama-index-tools-tavily-research
