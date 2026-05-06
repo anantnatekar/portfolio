@@ -1,0 +1,21 @@
+# Don't bake runtime data or secrets into the image
+outputs/
+client_input/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment files — passed at runtime via docker-compose
+.env
+.env.*
+
+# Dev / CI artifacts
+.git/
+.gitignore
+.github/
+*.md
+.DS_Store
+setup_ec2.sh

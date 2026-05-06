@@ -1,0 +1,84 @@
+name: Build, Push to ECR & Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main   # triggers on every push to main
+
+env:
+  AWS_REGION:     ${{ secrets.AWS_DEFAULT_REGION }}
+  ECR_REPOSITORY: portfolioai
+  IMAGE_TAG:      latest
+
+jobs:
+  build-and-deploy:
+    name: Build → ECR → EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Checkout code
+      # ------------------------------------------------------------------ #
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------ #
+      # 2. Authenticate with AWS
+      # ------------------------------------------------------------------ #
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region:            ${{ secrets.AWS_DEFAULT_REGION }}
+
+      # ------------------------------------------------------------------ #
+      # 3. Log in to Amazon ECR
+      # ------------------------------------------------------------------ #
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ------------------------------------------------------------------ #
+      # 4. Build & push Docker image to ECR
+      # ------------------------------------------------------------------ #
+      - name: Build and push image to ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      # ------------------------------------------------------------------ #
+      # 5. SSH into EC2 and deploy the new image
+      # ------------------------------------------------------------------ #
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key:      ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            # Authenticate EC2 with ECR so it can pull the image
+            aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
+              | docker login --username AWS \
+                --password-stdin ${{ steps.build-image.outputs.image }}
+
+            # Pull the latest image
+            ECR_IMAGE=${{ steps.build-image.outputs.image }}
+            docker pull $ECR_IMAGE
+
+            # Navigate to the app directory and restart via docker-compose
+            cd ~/portfolioai
+            ECR_IMAGE=$ECR_IMAGE docker compose down
+            ECR_IMAGE=$ECR_IMAGE docker compose up -d
+
+            # Remove dangling images to keep disk clean
+            docker image prune -f
+
+            echo "Deployment complete — container is running."

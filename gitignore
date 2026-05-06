@@ -1,0 +1,19 @@
+# Secrets — never commit these
+.env
+.env.*
+
+# Runtime output
+outputs/
+client_input/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store
