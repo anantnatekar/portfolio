@@ -8,7 +8,7 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Environment files — passed at runtime via docker-compose
+# Environment files — set via Railway dashboard, never baked into image
 .env
 .env.*
 

@@ -1,14 +1,21 @@
 version: "3.9"
 
+# -----------------------------------------------------------------------
+# LOCAL DEVELOPMENT ONLY
+# For production, push to GitHub — Railway auto-deploys from main branch.
+# -----------------------------------------------------------------------
+
 services:
   portfolioai:
-    image: ${ECR_IMAGE}   # set by deploy workflow: <account>.dkr.ecr.<region>.amazonaws.com/portfolioai:latest
+    build: .                    # builds from local Dockerfile
     container_name: portfolioai
     restart: unless-stopped
     ports:
       - "8000:8000"
+    environment:
+      - PORT=8000
     env_file:
-      - .env            # lives on EC2 only — never committed to git
+      - .env                    # copy .env.example → .env and fill in values
     volumes:
       - ./outputs:/app/outputs           # persist Excel reports between restarts
       - ./client_input:/app/client_input # mount private client files
