@@ -20,7 +20,7 @@ from llama_index.llms.bedrock import Bedrock
 from llama_index.embeddings.bedrock import BedrockEmbedding
 from llama_index.readers.sec_filings import SECFilingsLoader
 from llama_index.tools.tavily_research import TavilyToolSpec
-
+ 
 # ---------------------------------------------------------------------------
 # 1. LOGGING & STARTUP VALIDATION
 # ---------------------------------------------------------------------------
@@ -29,8 +29,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("PortfolioAI")
-
-
+ 
+ 
 def _validate_env():
     missing = [
         var for var in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "TAVILY_API_KEY"]
@@ -41,8 +41,8 @@ def _validate_env():
             f"Missing required environment variables: {', '.join(missing)}. "
             "Ensure they are set in your .env file or passed via docker-compose."
         )
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # 2. TICKER RESOLUTION  (company name → ticker symbol)
 # ---------------------------------------------------------------------------
@@ -68,8 +68,8 @@ def resolve_ticker(input_str: str) -> tuple[str, str]:
         return input_str, name
     except Exception:
         return input_str, input_str
-
-
+ 
+ 
 def parse_ticker_input(raw: str) -> list[str]:
     """
     Parse a free-text string into a list of ticker/company tokens.
@@ -77,8 +77,8 @@ def parse_ticker_input(raw: str) -> list[str]:
     """
     tokens = re.split(r"[,;\n]+", raw)
     return [t.strip() for t in tokens if t.strip()]
-
-
+ 
+ 
 def parse_file_upload(file_bytes: bytes, filename: str) -> list[str]:
     """
     Read a CSV or Excel file and extract all non-empty values from
@@ -89,7 +89,7 @@ def parse_file_upload(file_bytes: bytes, filename: str) -> list[str]:
             df = pd.read_csv(io.BytesIO(file_bytes))
         else:
             df = pd.read_excel(io.BytesIO(file_bytes))
-
+ 
         # Try to find a named column first
         col = None
         for c in df.columns:
@@ -98,14 +98,14 @@ def parse_file_upload(file_bytes: bytes, filename: str) -> list[str]:
                 break
         if col is None:
             col = df.columns[0]
-
+ 
         values = df[col].dropna().astype(str).str.strip().tolist()
         return [v for v in values if v]
     except Exception as exc:
         logger.error("File parse error: %s", exc)
         return []
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # 3. QUANT METRICS  (direct — not via agent, for structured data capture)
 # ---------------------------------------------------------------------------
@@ -115,15 +115,15 @@ def get_quant_metrics(ticker: str, risk_free_rate: float = 0.04) -> dict:
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1y")
         info = stock.info
-
+ 
         if hist.empty:
             return {"error": f"No price data for {ticker}", "signal": "negative"}
-
+ 
         returns = hist["Close"].pct_change().dropna()
         ann_return = (hist["Close"].iloc[-1] / hist["Close"].iloc[0]) - 1
         ann_vol = returns.std() * np.sqrt(252)
         sharpe = (ann_return - risk_free_rate) / ann_vol if ann_vol != 0 else 0
-
+ 
         return {
             "ticker": ticker,
             "current_price": f"${info.get('currentPrice', hist['Close'].iloc[-1]):.2f}",
@@ -139,8 +139,8 @@ def get_quant_metrics(ticker: str, risk_free_rate: float = 0.04) -> dict:
     except Exception as exc:
         logger.error("Quant metrics failed for %s: %s", ticker, exc)
         return {"error": str(exc), "signal": "negative"}
-
-
+ 
+ 
 def _fmt_large(n) -> str:
     if n is None:
         return "N/A"
@@ -151,17 +151,26 @@ def _fmt_large(n) -> str:
     if n >= 1e6:
         return f"${n/1e6:.2f}M"
     return f"${n:,.0f}"
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # 4. AGENTS
 # ---------------------------------------------------------------------------
 def get_analyst_agent(client_files_path: str = "./client_input") -> ReActAgent:
     os.makedirs(client_files_path, exist_ok=True)
-    client_docs = SimpleDirectoryReader(client_files_path).load_data()
-    if not client_docs:
+ 
+    # Check for files BEFORE calling SimpleDirectoryReader
+    # It throws ValueError internally if the folder is empty — guard against it
+    has_files = any(
+        f.is_file()
+        for f in os.scandir(client_files_path)
+    )
+    if has_files:
+        client_docs = SimpleDirectoryReader(client_files_path).load_data()
+    else:
+        logger.warning("No files in '%s' — analyst agent using placeholder.", client_files_path)
         client_docs = [Document(text="No private client files loaded.")]
-
+ 
     client_index = VectorStoreIndex.from_documents(client_docs)
     client_tool = QueryEngineTool(
         query_engine=client_index.as_query_engine(),
@@ -170,12 +179,13 @@ def get_analyst_agent(client_files_path: str = "./client_input") -> ReActAgent:
             description="Searches private client holdings and uploaded files.",
         ),
     )
-
+ 
     def search_web_10k(ticker: str, form_type: str = "10-K") -> str:
         """Fetch fundamental risks from SEC EDGAR. Returns text + source URL."""
         try:
-            reader = SECFilingsLoader(tickers=[ticker], amount=1, filing_type=form_type)
-            docs = reader.load_data()
+            # SECFilingsLoader takes params in constructor, load_data() takes none
+            loader = SECFilingsLoader(tickers=[ticker], amount=1, filing_type=form_type)
+            docs = loader.load_data()
             if not docs:
                 return json.dumps({"summary": f"No {form_type} found for {ticker}.", "source_url": ""})
             idx = VectorStoreIndex.from_documents(docs)
@@ -187,7 +197,7 @@ def get_analyst_agent(client_files_path: str = "./client_input") -> ReActAgent:
         except Exception as exc:
             logger.error("SEC filing fetch failed for %s: %s", ticker, exc)
             return json.dumps({"summary": f"Error: {exc}", "source_url": ""})
-
+ 
     return ReActAgent(
         name="analyst_agent",
         description="Fundamental analyst: queries SEC EDGAR for 10-K filings.",
@@ -199,8 +209,8 @@ def get_analyst_agent(client_files_path: str = "./client_input") -> ReActAgent:
         tools=[client_tool, FunctionTool.from_defaults(fn=search_web_10k)],
         llm=Settings.llm,
     )
-
-
+ 
+ 
 def get_pulse_agent() -> ReActAgent:
     tavily_key = os.environ.get("TAVILY_API_KEY")
     if not tavily_key:
@@ -218,25 +228,25 @@ def get_pulse_agent() -> ReActAgent:
         tools=tavily_tool.to_tool_list(),
         llm=Settings.llm,
     )
-
-
+ 
+ 
 def get_quant_agent() -> ReActAgent:
     def get_metrics(ticker: str) -> str:
         return json.dumps(get_quant_metrics(ticker))
-
+ 
     return ReActAgent(
         name="quant_agent",
         description="Calculates Sharpe ratio and historical performance metrics.",
         tools=[FunctionTool.from_defaults(fn=get_metrics)],
         llm=Settings.llm,
     )
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # 5. PORTFOLIO BOT
 # ---------------------------------------------------------------------------
 class PortfolioBot:
-
+ 
     def __init__(self, region: str = "us-east-1"):
         _validate_env()
         Settings.llm = Bedrock(
@@ -250,7 +260,7 @@ class PortfolioBot:
         self.output_dir = "./outputs"
         os.makedirs(self.output_dir, exist_ok=True)
         self._build_workflow()
-
+ 
     def _build_workflow(self):
         optimizer = ReActAgent(
             name="optimizer_agent",
@@ -284,7 +294,7 @@ class PortfolioBot:
             ],
             root_agent="optimizer_agent",
         )
-
+ 
     def calculate_consensus(
         self, quant_sig: str, analyst_sig: str, pulse_sig: str
     ) -> dict:
@@ -294,7 +304,7 @@ class PortfolioBot:
         vote = "BUY" if pos >= 2 else "SELL"
         confidence = "100%" if (pos == 3 or neg == 3) else "66%"
         return {"recommendation": vote, "confidence": confidence}
-
+ 
     async def analyse_ticker(self, ticker: str, company_name: str) -> dict:
         """Run the full agent pipeline for one ticker and return structured result."""
         prompt = (
@@ -349,11 +359,11 @@ class PortfolioBot:
                 "overall_reasoning": str(exc),
                 "analysis_date": datetime.now().strftime("%Y-%m-%d"),
             }
-
+ 
     def generate_excel(self, results: list[dict]) -> str:
         """Write a richly formatted Excel report and return the file path."""
         path = os.path.join(self.output_dir, f"PortfolioAI_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
-
+ 
         # ── Build flat rows ──────────────────────────────────────────────────
         rows = []
         for r in results:
@@ -389,28 +399,28 @@ class PortfolioBot:
                 "News Source 2":        news_urls[1] if len(news_urls) > 1 else "",
                 "News Source 3":        news_urls[2] if len(news_urls) > 2 else "",
             })
-
+ 
         df = pd.DataFrame(rows)
         df.to_excel(path, index=False, sheet_name="Analysis", engine="openpyxl")
-
+ 
         # ── Apply formatting ─────────────────────────────────────────────────
         wb = load_workbook(path)
         ws = wb["Analysis"]
-
+ 
         # Header style
         header_fill = PatternFill("solid", fgColor="1F3864")
         header_font = Font(color="FFFFFF", bold=True, size=11)
         thin = Side(style="thin", color="CCCCCC")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
+ 
         for cell in ws[1]:
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             cell.border = border
-
+ 
         ws.row_dimensions[1].height = 30
-
+ 
         # Colour-code recommendation column (col D = index 4)
         rec_col = 4
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, max_row=ws.max_row), start=2):
@@ -427,7 +437,7 @@ class PortfolioBot:
             else:
                 fill = PatternFill("solid", fgColor="F2F2F2")
                 font_color = "000000"
-
+ 
             for cell in row:
                 cell.border = border
                 cell.alignment = Alignment(vertical="top", wrap_text=True)
@@ -440,7 +450,7 @@ class PortfolioBot:
                 for cell in row:
                     if not cell.fill or cell.fill.fgColor.rgb in ("00000000", "FFFFFFFF"):
                         cell.fill = PatternFill("solid", fgColor="F7F9FC")
-
+ 
         # Make URLs clickable
         url_cols = [21, 22, 23, 24]  # SEC URL + 3 news sources
         for col_idx in url_cols:
@@ -450,7 +460,7 @@ class PortfolioBot:
                     url = cell.value
                     cell.hyperlink = url
                     cell.font = Font(color="0563C1", underline="single")
-
+ 
         # Column widths
         col_widths = {
             1: 10,  # Ticker
@@ -480,10 +490,10 @@ class PortfolioBot:
         }
         for col_idx, width in col_widths.items():
             ws.column_dimensions[get_column_letter(col_idx)].width = width
-
+ 
         # Freeze header row
         ws.freeze_panes = "A2"
-
+ 
         # Add a summary sheet
         ws_summary = wb.create_sheet("Summary")
         ws_summary["A1"] = "PortfolioAI — Analysis Summary"
@@ -504,14 +514,14 @@ class PortfolioBot:
         ws_summary["A7"] = "SELL:"
         ws_summary["B7"] = sells
         ws_summary["B7"].font = Font(color="9C0006", bold=True)
-
+ 
         row = 9
         ws_summary.cell(row=row, column=1, value="Ticker").font = Font(bold=True)
         ws_summary.cell(row=row, column=2, value="Company").font = Font(bold=True)
         ws_summary.cell(row=row, column=3, value="Recommendation").font = Font(bold=True)
         ws_summary.cell(row=row, column=4, value="Confidence").font = Font(bold=True)
         ws_summary.cell(row=row, column=5, value="Sharpe Ratio").font = Font(bold=True)
-
+ 
         for i, r in enumerate(results, start=row + 1):
             ws_summary.cell(row=i, column=1, value=r.get("ticker", ""))
             ws_summary.cell(row=i, column=2, value=r.get("company_name", ""))
@@ -521,36 +531,36 @@ class PortfolioBot:
             ws_summary.cell(row=i, column=3).font = Font(bold=True, color=color)
             ws_summary.cell(row=i, column=4, value=r.get("confidence", ""))
             ws_summary.cell(row=i, column=5, value=r.get("sharpe_ratio", ""))
-
+ 
         for col in range(1, 6):
             ws_summary.column_dimensions[get_column_letter(col)].width = 20
-
+ 
         wb.save(path)
         logger.info("Excel report saved: %s", path)
         return path
-
-
+ 
+ 
 # ---------------------------------------------------------------------------
 # 6. CHAINLIT UI
 # ---------------------------------------------------------------------------
 _bot: PortfolioBot | None = None
-
-
+ 
+ 
 def get_bot() -> PortfolioBot:
     global _bot
     if _bot is None:
         _bot = PortfolioBot()
     return _bot
-
-
+ 
+ 
 def _recommendation_emoji(rec: str) -> str:
     return {"BUY": "✅", "SELL": "🔴", "HOLD": "🟡"}.get(rec, "❓")
-
-
+ 
+ 
 def _signal_emoji(sig: str) -> str:
     return "🟢" if str(sig).lower() == "positive" else "🔴"
-
-
+ 
+ 
 def _format_result_card(r: dict) -> str:
     """Format a single equity result as a Markdown card for Chainlit."""
     rec = r.get("recommendation", "N/A")
@@ -558,7 +568,7 @@ def _format_result_card(r: dict) -> str:
     sig_q = _signal_emoji(r.get("quant_signal", ""))
     sig_f = _signal_emoji(r.get("fundamental_signal", ""))
     sig_n = _signal_emoji(r.get("news_signal", ""))
-
+ 
     news_urls = r.get("news_urls", [])
     if isinstance(news_urls, str):
         try:
@@ -568,20 +578,20 @@ def _format_result_card(r: dict) -> str:
     news_links = " | ".join(f"[Source {i+1}]({u})" for i, u in enumerate(news_urls) if u)
     sec_url = r.get("sec_url", "")
     sec_link = f"[SEC Filing]({sec_url})" if sec_url else ""
-
+ 
     return f"""
 ---
 ## {emoji} {r.get('company_name', r.get('ticker', ''))} `{r.get('ticker', '')}`
-
+ 
 **Recommendation:** `{rec}` &nbsp;|&nbsp; **Confidence:** {r.get('confidence', 'N/A')} &nbsp;|&nbsp; **Date:** {r.get('analysis_date', '')}
-
+ 
 ### 📊 Signal Summary
 | Agent | Signal | Reasoning |
 |---|---|---|
 | Quant {sig_q} | {r.get('quant_signal', 'N/A').title()} | {r.get('quant_reasoning', '')} |
 | Fundamental {sig_f} | {r.get('fundamental_signal', 'N/A').title()} | {r.get('fundamental_reasoning', '')} |
 | News {sig_n} | {r.get('news_signal', 'N/A').title()} | {r.get('news_reasoning', '')} |
-
+ 
 ### 📈 Key Metrics
 | Metric | Value |
 |---|---|
@@ -593,15 +603,15 @@ def _format_result_card(r: dict) -> str:
 | Sharpe Ratio | {r.get('sharpe_ratio', 'N/A')} |
 | 52W High | {r.get('52w_high', 'N/A')} |
 | 52W Low | {r.get('52w_low', 'N/A')} |
-
+ 
 ### 💡 Overall Assessment
 {r.get('overall_reasoning', 'N/A')}
-
+ 
 ### 🔗 Sources
 {sec_link}{'  |  ' if sec_link and news_links else ''}{news_links}
 """
-
-
+ 
+ 
 @cl.on_chat_start
 async def on_chat_start():
     await cl.Message(
@@ -618,13 +628,13 @@ async def on_chat_start():
             "A downloadable Excel report with full reasoning and source links is generated automatically._"
         )
     ).send()
-
-
+ 
+ 
 @cl.on_message
 async def on_message(message: cl.Message):
     bot = get_bot()
     tickers_to_analyse: list[tuple[str, str]] = []  # (ticker, company_name)
-
+ 
     # ── Handle file uploads ──────────────────────────────────────────────────
     if message.elements:
         for element in message.elements:
@@ -639,7 +649,7 @@ async def on_message(message: cl.Message):
                     for token in raw_tokens:
                         ticker, name = resolve_ticker(token)
                         tickers_to_analyse.append((ticker, name))
-
+ 
     # ── Handle text input ────────────────────────────────────────────────────
     if message.content.strip():
         tokens = parse_ticker_input(message.content)
@@ -650,14 +660,14 @@ async def on_message(message: cl.Message):
             for token in tokens:
                 ticker, name = resolve_ticker(token)
                 tickers_to_analyse.append((ticker, name))
-
+ 
     if not tickers_to_analyse:
         await cl.Message(
             content="⚠️ I couldn't find any equities in your input. Please enter ticker symbols, "
                     "company names (comma-separated), or upload a CSV/Excel file."
         ).send()
         return
-
+ 
     # Deduplicate by ticker
     seen = set()
     unique = []
@@ -666,14 +676,14 @@ async def on_message(message: cl.Message):
             seen.add(t)
             unique.append((t, n))
     tickers_to_analyse = unique
-
+ 
     await cl.Message(
         content=f"🚀 Starting analysis of **{len(tickers_to_analyse)}** "
                 f"equit{'y' if len(tickers_to_analyse)==1 else 'ies'}: "
                 f"{', '.join(f'`{t}`' for t, _ in tickers_to_analyse)}\n\n"
                 "_This may take a minute per equity — each one runs through three AI agents._"
     ).send()
-
+ 
     # ── Analyse each equity ──────────────────────────────────────────────────
     all_results = []
     for ticker, company_name in tickers_to_analyse:
@@ -682,15 +692,15 @@ async def on_message(message: cl.Message):
             result = await bot.analyse_ticker(ticker, company_name)
             all_results.append(result)
             step.output = f"✅ {ticker} complete — {result.get('recommendation', 'ERROR')}"
-
+ 
         # Show result card immediately so user sees progress
         await cl.Message(content=_format_result_card(result)).send()
-
+ 
     # ── Generate Excel ───────────────────────────────────────────────────────
     async with cl.Step(name="Generating Excel report...") as step:
         excel_path = bot.generate_excel(all_results)
         step.output = "Report ready."
-
+ 
     elements = [
         cl.File(
             name=os.path.basename(excel_path),
@@ -698,12 +708,12 @@ async def on_message(message: cl.Message):
             display="inline",
         )
     ]
-
+ 
     # Final summary
     buys  = sum(1 for r in all_results if r.get("recommendation") == "BUY")
     holds = sum(1 for r in all_results if r.get("recommendation") == "HOLD")
     sells = sum(1 for r in all_results if r.get("recommendation") == "SELL")
-
+ 
     await cl.Message(
         content=(
             f"## 📋 Analysis Complete\n\n"
