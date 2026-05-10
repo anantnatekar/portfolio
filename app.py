@@ -18,7 +18,7 @@ from llama_index.core.tools import QueryEngineTool, ToolMetadata, FunctionTool
 from llama_index.core.schema import Document
 from llama_index.llms.bedrock import Bedrock
 from llama_index.embeddings.bedrock import BedrockEmbedding
-from llama_index.readers.sec_filings import SECFilingsReader
+from llama_index.readers.sec_filings import SECFilingsLoader
 from llama_index.tools.tavily_research import TavilyToolSpec
 
 # ---------------------------------------------------------------------------
@@ -174,8 +174,8 @@ def get_analyst_agent(client_files_path: str = "./client_input") -> ReActAgent:
     def search_web_10k(ticker: str, form_type: str = "10-K") -> str:
         """Fetch fundamental risks from SEC EDGAR. Returns text + source URL."""
         try:
-            reader = SECFilingsReader()
-            docs = reader.load_data(tickers=[ticker], amount=1, filing_type=form_type)
+            reader = SECFilingsLoader(tickers=[ticker], amount=1, filing_type=form_type)
+            docs = reader.load_data()
             if not docs:
                 return json.dumps({"summary": f"No {form_type} found for {ticker}.", "source_url": ""})
             idx = VectorStoreIndex.from_documents(docs)
