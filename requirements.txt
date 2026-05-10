@@ -1,6 +1,5 @@
-# Core LlamaIndex
-llama-index-core
-llama-index-agent-cot
+# Core LlamaIndex — ReActAgent and AgentWorkflow are bundled inside core
+llama-index-core>=0.12.0
 
 # LLM & Embeddings
 llama-index-llms-bedrock
