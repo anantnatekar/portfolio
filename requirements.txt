@@ -17,5 +17,8 @@ openpyxl
 yfinance
 numpy
 
+# Charting
+plotly
+
 # Chatbot UI
 chainlit

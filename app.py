@@ -7,6 +7,7 @@ import re
 import pandas as pd
 import yfinance as yf
 import numpy as np
+import plotly.graph_objects as go
 import chainlit as cl
 from datetime import datetime
 from openpyxl import load_workbook
@@ -711,6 +712,145 @@ def get_djia_data() -> dict:
         return {"error": str(exc)}
 
 
+def generate_djia_chart(years: int = 10) -> str | None:
+    """
+    Fetch DJIA history for the given number of years and generate
+    an interactive Plotly HTML chart. Returns the file path or None on error.
+    """
+    try:
+        dji = yf.Ticker("^DJI")
+        period_map = {1: "1y", 2: "2y", 5: "5y", 10: "10y"}
+        period = period_map.get(years, "10y")
+        hist = dji.history(period=period)
+
+        if hist.empty:
+            return None
+
+        hist = hist.reset_index()
+        # Ensure Date column is datetime
+        hist["Date"] = pd.to_datetime(hist["Date"])
+        # Remove timezone info for Plotly compatibility
+        if hist["Date"].dt.tz is not None:
+            hist["Date"] = hist["Date"].dt.tz_localize(None)
+
+        close   = hist["Close"]
+        dates   = hist["Date"]
+        color   = "#22c55e" if close.iloc[-1] >= close.iloc[0] else "#ef4444"
+
+        # ── Build figure ────────────────────────────────────────────────────
+        fig = go.Figure()
+
+        # Filled area line
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=close,
+            mode="lines",
+            name="DJIA",
+            line=dict(color=color, width=2),
+            fill="tozeroy",
+            fillcolor=color.replace(")", ", 0.08)").replace("rgb", "rgba") if "rgb" in color
+                      else f"rgba(34,197,94,0.08)" if color == "#22c55e"
+                      else f"rgba(239,68,68,0.08)",
+            hovertemplate="<b>%{x|%b %d, %Y}</b><br>DJIA: %{y:,.0f}<extra></extra>",
+        ))
+
+        # Add 200-day moving average
+        if len(close) >= 200:
+            ma200 = close.rolling(200).mean()
+            fig.add_trace(go.Scatter(
+                x=dates,
+                y=ma200,
+                mode="lines",
+                name="200-Day MA",
+                line=dict(color="#f59e0b", width=1.5, dash="dot"),
+                hovertemplate="200D MA: %{y:,.0f}<extra></extra>",
+            ))
+
+        # Add 50-day moving average
+        if len(close) >= 50:
+            ma50 = close.rolling(50).mean()
+            fig.add_trace(go.Scatter(
+                x=dates,
+                y=ma50,
+                mode="lines",
+                name="50-Day MA",
+                line=dict(color="#a78bfa", width=1.5, dash="dash"),
+                hovertemplate="50D MA: %{y:,.0f}<extra></extra>",
+            ))
+
+        # Annotations — start and end values
+        pct_change = ((close.iloc[-1] - close.iloc[0]) / close.iloc[0]) * 100
+        sign = "+" if pct_change >= 0 else ""
+
+        fig.update_layout(
+            title=dict(
+                text=f"Dow Jones Industrial Average — {years}-Year Performance"
+                     f"<br><sup>{sign}{pct_change:.1f}% over period  |  "
+                     f"Current: {close.iloc[-1]:,.0f}  |  "
+                     f"Updated: {datetime.now().strftime('%b %d, %Y %H:%M ET')}</sup>",
+                font=dict(size=16, color="#f8fafc"),
+                x=0,
+            ),
+            paper_bgcolor="#0f172a",
+            plot_bgcolor="#0f172a",
+            font=dict(color="#94a3b8", family="sans-serif"),
+            xaxis=dict(
+                showgrid=True,
+                gridcolor="#1e293b",
+                gridwidth=1,
+                tickfont=dict(color="#94a3b8"),
+                rangeslider=dict(visible=True, bgcolor="#1e293b", thickness=0.05),
+                rangeselector=dict(
+                    buttons=[
+                        dict(count=6,  label="6M",  step="month", stepmode="backward"),
+                        dict(count=1,  label="1Y",  step="year",  stepmode="backward"),
+                        dict(count=3,  label="3Y",  step="year",  stepmode="backward"),
+                        dict(count=5,  label="5Y",  step="year",  stepmode="backward"),
+                        dict(step="all", label="All"),
+                    ],
+                    bgcolor="#1e293b",
+                    activecolor="#334155",
+                    font=dict(color="#94a3b8"),
+                ),
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor="#1e293b",
+                gridwidth=1,
+                tickfont=dict(color="#94a3b8"),
+                tickformat=",.0f",
+                side="right",
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+                font=dict(color="#94a3b8"),
+                bgcolor="rgba(0,0,0,0)",
+            ),
+            margin=dict(l=20, r=20, t=80, b=40),
+            height=480,
+            hovermode="x unified",
+        )
+
+        # Save as self-contained HTML file
+        os.makedirs("./outputs", exist_ok=True)
+        chart_path = "./outputs/djia_chart.html"
+        fig.write_html(
+            chart_path,
+            include_plotlyjs="cdn",   # loads Plotly from CDN — keeps file small
+            full_html=True,
+            config={"displayModeBar": True, "scrollZoom": True},
+        )
+        return chart_path
+
+    except Exception as exc:
+        logger.error("DJIA chart generation failed: %s", exc)
+        return None
+
+
 def _djia_markdown(djia: dict) -> str:
     """Render DJIA data as clean Markdown — works reliably in all Chainlit versions."""
     if "error" in djia:
@@ -835,12 +975,40 @@ def _format_inline_result(r: dict) -> str:
 
 @cl.on_chat_start
 async def on_chat_start():
-    # ── Fetch DJIA and display as Markdown ───────────────────────────────────
+    # ── Fetch DJIA metrics and generate chart in parallel ────────────────────
     djia = get_djia_data()
+    chart_path = generate_djia_chart(years=10)
+
+    # ── Send Markdown metrics summary ────────────────────────────────────────
     await cl.Message(
         content=_djia_markdown(djia),
         author="Market Overview",
     ).send()
+
+    # ── Attach interactive Plotly chart as downloadable/viewable HTML ────────
+    if chart_path and os.path.exists(chart_path):
+        await cl.Message(
+            content=(
+                "📈 **DJIA 10-Year Interactive Chart**\n\n"
+                "_Open the file below for a fully interactive chart — "
+                "zoom, pan, hover for daily values, and switch timeframes "
+                "using the 6M / 1Y / 3Y / 5Y / All buttons. "
+                "Includes 50-day and 200-day moving averages._"
+            ),
+            elements=[
+                cl.File(
+                    name="DJIA_10Year_Chart.html",
+                    path=chart_path,
+                    display="inline",
+                )
+            ],
+            author="Market Overview",
+        ).send()
+    else:
+        await cl.Message(
+            content="⚠️ Could not generate DJIA chart — market data may be unavailable.",
+            author="Market Overview",
+        ).send()
 
     # ── Welcome message ──────────────────────────────────────────────────────
     await cl.Message(
