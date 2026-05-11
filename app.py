@@ -711,9 +711,9 @@ def get_djia_data() -> dict:
         return {"error": str(exc)}
 
 
-def _build_djia_element(djia: dict) -> cl.Html:
-    """Build a cl.Html element carrying the DJIA HTML for inline display."""
-    return cl.Html(
+def _build_djia_element(djia: dict) -> cl.Text:
+    """Build a cl.Text element carrying the DJIA HTML for inline display."""
+    return cl.Text(
         name="djia_panel",
         content=_djia_sidebar_html(djia),
         display="inline",
