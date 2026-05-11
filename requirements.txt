@@ -7,7 +7,6 @@ llama-index-embeddings-huggingface
 
 # Data readers
 llama-index-readers-file
-llama-index-readers-sec-filings
 
 # Tools
 llama-index-tools-tavily-research
