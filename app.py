@@ -582,10 +582,11 @@ class PortfolioBot:
         for col_idx in url_cols:
             for row_idx in range(2, ws.max_row + 1):
                 cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value and str(cell.value).startswith("http"):
-                    url = cell.value
-                    cell.hyperlink = url
-                    cell.font = Font(color="0563C1", underline="single")
+                if cell.value is not None:
+		    cell_str = str(cell.value)
+		    if cell_str.startswith("http"):
+			cell.hyperlink = cell.value
+	                cell.font = Font(color="0563C1", underline="single")
 
         # Column widths
         col_widths = {
