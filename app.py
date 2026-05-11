@@ -666,7 +666,115 @@ class PortfolioBot:
 
 
 # ---------------------------------------------------------------------------
-# 6. CHAINLIT UI
+# 6. DJIA DATA  (for left panel)
+# ---------------------------------------------------------------------------
+def get_djia_data() -> dict:
+    """Fetch DJIA current performance data via yfinance."""
+    try:
+        dji = yf.Ticker("^DJI")
+        hist = dji.history(period="5d")
+        info = dji.info
+
+        if hist.empty:
+            return {"error": "Could not load DJIA data"}
+
+        current = hist["Close"].iloc[-1]
+        prev    = hist["Close"].iloc[-2]
+        change  = current - prev
+        pct     = (change / prev) * 100
+
+        # 1-year performance
+        hist_1y = dji.history(period="1y")
+        ytd_return = ((hist_1y["Close"].iloc[-1] / hist_1y["Close"].iloc[0]) - 1) * 100
+
+        # 30-day high/low
+        hist_30 = dji.history(period="1mo")
+        high_30 = hist_30["High"].max()
+        low_30  = hist_30["Low"].min()
+
+        # Build sparkline data (last 30 closes, normalised to % from start)
+        closes = hist_1y["Close"].resample("W").last().tail(52).tolist()
+
+        return {
+            "current":    f"{current:,.2f}",
+            "change":     f"{change:+,.2f}",
+            "pct":        f"{pct:+.2f}%",
+            "direction":  "up" if change >= 0 else "down",
+            "ytd_return": f"{ytd_return:+.2f}%",
+            "high_30":    f"{high_30:,.2f}",
+            "low_30":     f"{low_30:,.2f}",
+            "sparkline":  closes,
+            "updated":    datetime.now().strftime("%H:%M ET"),
+        }
+    except Exception as exc:
+        logger.error("DJIA fetch failed: %s", exc)
+        return {"error": str(exc)}
+
+
+def _build_djia_element(djia: dict) -> cl.CustomData:
+    """Build a CustomData element carrying the DJIA payload for the sidebar."""
+    return cl.CustomData(name="djia_panel", data=djia)
+
+
+def _djia_sidebar_html(djia: dict) -> str:
+    """Render DJIA data as an HTML CustomData element for Chainlit sidebar."""
+    if "error" in djia:
+        return f"<div style='color:#ff4444'>⚠️ {djia['error']}</div>"
+
+    color  = "#22c55e" if djia["direction"] == "up" else "#ef4444"
+    arrow  = "▲" if djia["direction"] == "up" else "▼"
+
+    # Build mini SVG sparkline
+    vals   = djia.get("sparkline", [])
+    spark  = ""
+    if vals and len(vals) > 1:
+        mn, mx = min(vals), max(vals)
+        rng    = mx - mn or 1
+        w, h   = 200, 50
+        pts    = " ".join(
+            f"{int(i * w / (len(vals)-1))},{int(h - (v - mn) / rng * h)}"
+            for i, v in enumerate(vals)
+        )
+        spark = (
+            f'<svg width="{w}" height="{h}" style="margin-top:8px">'
+            f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2"/>'
+            f'</svg>'
+        )
+
+    return f"""
+<div style="font-family:sans-serif;padding:12px;background:#0f172a;border-radius:10px;color:#e2e8f0;min-width:220px">
+  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:4px">
+    Dow Jones Industrial Average
+  </div>
+  <div style="font-size:28px;font-weight:700;color:#f8fafc">{djia['current']}</div>
+  <div style="font-size:16px;font-weight:600;color:{color};margin-top:2px">
+    {arrow} {djia['change']} ({djia['pct']})
+  </div>
+  {spark}
+  <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div style="background:#1e293b;border-radius:6px;padding:8px">
+      <div style="font-size:10px;color:#94a3b8">1-Year Return</div>
+      <div style="font-size:14px;font-weight:600;color:{color}">{djia['ytd_return']}</div>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:8px">
+      <div style="font-size:10px;color:#94a3b8">30D High</div>
+      <div style="font-size:14px;font-weight:600">{djia['high_30']}</div>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:8px">
+      <div style="font-size:10px;color:#94a3b8">30D Low</div>
+      <div style="font-size:14px;font-weight:600">{djia['low_30']}</div>
+    </div>
+    <div style="background:#1e293b;border-radius:6px;padding:8px">
+      <div style="font-size:10px;color:#94a3b8">Updated</div>
+      <div style="font-size:14px;font-weight:600">{djia['updated']}</div>
+    </div>
+  </div>
+</div>
+"""
+
+
+# ---------------------------------------------------------------------------
+# 7. CHAINLIT UI
 # ---------------------------------------------------------------------------
 _bot: PortfolioBot | None = None
 
@@ -683,82 +791,120 @@ def _recommendation_emoji(rec: str) -> str:
 
 
 def _signal_emoji(sig: str) -> str:
-    return "🟢" if str(sig).lower() == "positive" else "🔴"
+    sig = str(sig).lower()
+    if sig == "positive":  return "🟢"
+    if sig == "negative":  return "🔴"
+    return "⚪"
 
 
-def _format_result_card(r: dict) -> str:
-    """Format a single equity result as a Markdown card for Chainlit."""
-    rec = r.get("recommendation", "N/A")
-    emoji = _recommendation_emoji(rec)
-    sig_q = _signal_emoji(r.get("quant_signal", ""))
-    sig_f = _signal_emoji(r.get("fundamental_signal", ""))
-    sig_n = _signal_emoji(r.get("news_signal", ""))
+def _format_inline_result(r: dict) -> str:
+    """
+    Render a full equity result as rich inline Markdown.
+    Everything displayed in the chat panel — no cards, no separate files shown first.
+    """
+    rec    = r.get("recommendation", "N/A")
+    emoji  = _recommendation_emoji(rec)
+    sig_q  = _signal_emoji(r.get("quant_signal", ""))
+    sig_f  = _signal_emoji(r.get("fundamental_signal", ""))
+    sig_n  = _signal_emoji(r.get("news_signal", ""))
+
+    # Recommendation badge colour via unicode block
+    badge  = {"BUY": "🟩 **BUY**", "SELL": "🟥 **SELL**", "HOLD": "🟨 **HOLD**"}.get(rec, f"**{rec}**")
 
     news_urls = r.get("news_urls", [])
     if isinstance(news_urls, str):
-        try:
-            news_urls = json.loads(news_urls)
-        except Exception:
-            news_urls = [news_urls]
-    news_links = " | ".join(f"[Source {i+1}]({u})" for i, u in enumerate(news_urls) if u)
-    sec_url = r.get("sec_url", "")
-    sec_link = f"[SEC Filing]({sec_url})" if sec_url else ""
+        try:    news_urls = json.loads(news_urls)
+        except: news_urls = [news_urls]
+    news_links = "\n".join(
+        f"  - [📰 News Source {i+1}]({u})" for i, u in enumerate(news_urls) if u
+    )
+    sec_url  = r.get("sec_url", "")
+    sec_link = f"  - [🏛️ SEC Filing]({sec_url})" if sec_url else ""
+    sources  = "\n".join(filter(None, [sec_link, news_links])) or "  - No sources available"
 
     return f"""
 ---
-## {emoji} {r.get('company_name', r.get('ticker', ''))} `{r.get('ticker', '')}`
+# {emoji} {r.get('company_name', r.get('ticker', ''))} &nbsp; `{r.get('ticker', '')}`
 
-**Recommendation:** `{rec}` &nbsp;|&nbsp; **Confidence:** {r.get('confidence', 'N/A')} &nbsp;|&nbsp; **Date:** {r.get('analysis_date', '')}
+> **{badge}** &nbsp;&nbsp; Confidence: **{r.get('confidence', 'N/A')}** &nbsp;&nbsp; Analysis Date: {r.get('analysis_date', '')}
 
-### 📊 Signal Summary
+---
+
+## 📊 Agent Signals
+
 | Agent | Signal | Reasoning |
-|---|---|---|
-| Quant {sig_q} | {r.get('quant_signal', 'N/A').title()} | {r.get('quant_reasoning', '')} |
-| Fundamental {sig_f} | {r.get('fundamental_signal', 'N/A').title()} | {r.get('fundamental_reasoning', '')} |
-| News {sig_n} | {r.get('news_signal', 'N/A').title()} | {r.get('news_reasoning', '')} |
+|:---|:---:|:---|
+| 📈 Quantitative | {sig_q} {r.get('quant_signal','N/A').title()} | {r.get('quant_reasoning', 'N/A')} |
+| 🏛️ Fundamental | {sig_f} {r.get('fundamental_signal','N/A').title()} | {r.get('fundamental_reasoning', 'N/A')} |
+| 📰 News Sentiment | {sig_n} {r.get('news_signal','N/A').title()} | {r.get('news_reasoning', 'N/A')} |
 
-### 📈 Key Metrics
-| Metric | Value |
-|---|---|
-| Current Price | {r.get('current_price', 'N/A')} |
-| Market Cap | {r.get('market_cap', 'N/A')} |
-| P/E Ratio | {r.get('pe_ratio', 'N/A')} |
-| Annual Return | {r.get('ann_return', 'N/A')} |
-| Annual Volatility | {r.get('ann_volatility', 'N/A')} |
-| Sharpe Ratio | {r.get('sharpe_ratio', 'N/A')} |
-| 52W High | {r.get('52w_high', 'N/A')} |
-| 52W Low | {r.get('52w_low', 'N/A')} |
+---
 
-### 💡 Overall Assessment
+## 📈 Key Metrics
+
+| Metric | Value | Metric | Value |
+|:---|---:|:---|---:|
+| **Current Price** | {r.get('current_price','N/A')} | **Market Cap** | {r.get('market_cap','N/A')} |
+| **P/E Ratio** | {r.get('pe_ratio','N/A')} | **Sharpe Ratio** | {r.get('sharpe_ratio','N/A')} |
+| **Annual Return** | {r.get('ann_return','N/A')} | **Annual Volatility** | {r.get('ann_volatility','N/A')} |
+| **52-Week High** | {r.get('52w_high','N/A')} | **52-Week Low** | {r.get('52w_low','N/A')} |
+
+---
+
+## 💡 Overall Assessment
+
 {r.get('overall_reasoning', 'N/A')}
 
-### 🔗 Sources
-{sec_link}{'  |  ' if sec_link and news_links else ''}{news_links}
+---
+
+## 🔗 Research Sources
+
+{sources}
+
 """
 
 
 @cl.on_chat_start
 async def on_chat_start():
+    # ── Fetch DJIA for sidebar ───────────────────────────────────────────────
+    djia = get_djia_data()
+    djia_html = _djia_sidebar_html(djia)
+
+    # Send DJIA as a side message element displayed before the welcome message
+    await cl.Message(
+        content=djia_html,
+        author="📊 Market Overview",
+    ).send()
+
+    # ── Welcome message ──────────────────────────────────────────────────────
     await cl.Message(
         content=(
-            "👋 **Welcome to PortfolioAI**\n\n"
-            "I analyse equities using quantitative metrics, SEC filings, and real-time news "
-            "to give you a **BUY / HOLD / SELL** recommendation with full reasoning.\n\n"
-            "**How to use:**\n"
-            "- Type one ticker: `AAPL`\n"
-            "- Type a company name: `Apple`\n"
-            "- Type multiple tickers/names: `AAPL, Microsoft, NVDA`\n"
-            "- 📎 **Upload a CSV or Excel file** with a column of tickers or company names\n\n"
-            "_Each equity is analysed independently across Quant, Fundamental, and News agents. "
-            "A downloadable Excel report with full reasoning and source links is generated automatically._"
-        )
+            "# 👋 Welcome to PortfolioAI\n\n"
+            "I analyse equities using **three AI agents** — Quantitative, Fundamental (SEC filings), "
+            "and News Sentiment — to deliver a **BUY / HOLD / SELL** recommendation "
+            "with full reasoning displayed directly on screen.\n\n"
+            "---\n\n"
+            "## How to use\n\n"
+            "| Input type | Example |\n"
+            "|:---|:---|\n"
+            "| Single ticker | `AAPL` |\n"
+            "| Company name | `Apple` |\n"
+            "| Multiple equities | `AAPL, Microsoft, NVDA` |\n"
+            "| File upload | CSV or Excel with a ticker/company column |\n\n"
+            "---\n\n"
+            "_Each equity runs through all three agents independently. "
+            "Results appear on screen as each analysis completes, "
+            "followed by a downloadable Excel report with full reasoning and source links._\n\n"
+            "**Type a ticker or company name below to get started ↓**"
+        ),
+        author="PortfolioAI",
     ).send()
 
 
 @cl.on_message
 async def on_message(message: cl.Message):
     bot = get_bot()
-    tickers_to_analyse: list[tuple[str, str]] = []  # (ticker, company_name)
+    tickers_to_analyse: list[tuple[str, str]] = []
 
     # ── Handle file uploads ──────────────────────────────────────────────────
     if message.elements:
@@ -779,7 +925,7 @@ async def on_message(message: cl.Message):
     if message.content.strip():
         tokens = parse_ticker_input(message.content)
         if tokens:
-            resolving_msg = await cl.Message(
+            await cl.Message(
                 content=f"🔍 Resolving **{len(tokens)}** equit{'y' if len(tokens)==1 else 'ies'}..."
             ).send()
             for token in tokens:
@@ -788,14 +934,16 @@ async def on_message(message: cl.Message):
 
     if not tickers_to_analyse:
         await cl.Message(
-            content="⚠️ I couldn't find any equities in your input. Please enter ticker symbols, "
-                    "company names (comma-separated), or upload a CSV/Excel file."
+            content=(
+                "⚠️ I couldn't find any equities in your input.\n\n"
+                "Please enter ticker symbols or company names (comma-separated), "
+                "or upload a CSV/Excel file with a ticker column."
+            )
         ).send()
         return
 
-    # Deduplicate by ticker
-    seen = set()
-    unique = []
+    # Deduplicate
+    seen, unique = set(), []
     for t, n in tickers_to_analyse:
         if t not in seen:
             seen.add(t)
@@ -803,28 +951,39 @@ async def on_message(message: cl.Message):
     tickers_to_analyse = unique
 
     await cl.Message(
-        content=f"🚀 Starting analysis of **{len(tickers_to_analyse)}** "
-                f"equit{'y' if len(tickers_to_analyse)==1 else 'ies'}: "
-                f"{', '.join(f'`{t}`' for t, _ in tickers_to_analyse)}\n\n"
-                "_This may take a minute per equity — each one runs through three AI agents._"
+        content=(
+            f"🚀 Starting analysis of **{len(tickers_to_analyse)}** "
+            f"equit{'y' if len(tickers_to_analyse)==1 else 'ies'}: "
+            f"{', '.join(f'`{t}`' for t, _ in tickers_to_analyse)}\n\n"
+            "_Running Quant, Fundamental, and News agents for each equity — "
+            "results will appear below as they complete..._"
+        )
     ).send()
 
-    # ── Analyse each equity ──────────────────────────────────────────────────
+    # ── Analyse each equity and display inline ───────────────────────────────
     all_results = []
     for ticker, company_name in tickers_to_analyse:
-        async with cl.Step(name=f"Analysing {ticker} — {company_name}") as step:
-            step.output = "Running Quant, Fundamental, and News agents..."
+        async with cl.Step(name=f"⏳ Analysing {ticker} — {company_name}") as step:
+            step.output = "Running Quant → Fundamental → News → Consensus..."
             result = await bot.analyse_ticker(ticker, company_name)
             all_results.append(result)
-            step.output = f"✅ {ticker} complete — {result.get('recommendation', 'ERROR')}"
+            rec = result.get("recommendation", "ERROR")
+            step.output = f"{'✅' if rec != 'ERROR' else '⚠️'} {ticker} complete — {rec}"
 
-        # Show result card immediately so user sees progress
-        await cl.Message(content=_format_result_card(result)).send()
+        # Display full inline result immediately
+        await cl.Message(
+            content=_format_inline_result(result),
+            author=f"PortfolioAI — {company_name}",
+        ).send()
 
-    # ── Generate Excel ───────────────────────────────────────────────────────
-    async with cl.Step(name="Generating Excel report...") as step:
+    # ── Generate and attach Excel ────────────────────────────────────────────
+    async with cl.Step(name="📊 Generating Excel report...") as step:
         excel_path = bot.generate_excel(all_results)
         step.output = "Report ready."
+
+    buys  = sum(1 for r in all_results if r.get("recommendation") == "BUY")
+    holds = sum(1 for r in all_results if r.get("recommendation") == "HOLD")
+    sells = sum(1 for r in all_results if r.get("recommendation") == "SELL")
 
     elements = [
         cl.File(
@@ -834,18 +993,18 @@ async def on_message(message: cl.Message):
         )
     ]
 
-    # Final summary
-    buys  = sum(1 for r in all_results if r.get("recommendation") == "BUY")
-    holds = sum(1 for r in all_results if r.get("recommendation") == "HOLD")
-    sells = sum(1 for r in all_results if r.get("recommendation") == "SELL")
-
     await cl.Message(
         content=(
+            f"---\n\n"
             f"## 📋 Analysis Complete\n\n"
-            f"**{len(all_results)} equities analysed** — "
-            f"✅ {buys} BUY &nbsp;|&nbsp; 🟡 {holds} HOLD &nbsp;|&nbsp; 🔴 {sells} SELL\n\n"
-            f"The Excel report below includes full reasoning, all metrics, "
-            f"and clickable links to SEC filings and news sources for every equity."
+            f"**{len(all_results)}** equit{'y' if len(all_results)==1 else 'ies'} analysed &nbsp;|&nbsp; "
+            f"✅ **{buys} BUY** &nbsp;|&nbsp; "
+            f"🟡 **{holds} HOLD** &nbsp;|&nbsp; "
+            f"🔴 **{sells} SELL**\n\n"
+            f"The Excel report below contains all results, full reasoning, "
+            f"and clickable links to SEC filings and news sources."
         ),
         elements=elements,
+        author="PortfolioAI",
     ).send()
+

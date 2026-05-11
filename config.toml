@@ -1,0 +1,17 @@
+[project]
+enable_telemetry = false
+name = "PortfolioAI"
+
+[UI]
+name = "PortfolioAI"
+show_readme_as_default = false
+default_collapse_content = false
+hide_cot = false
+collapse_content = false
+
+[features]
+prompt_playground = false
+multi_modal = true
+
+[meta]
+generated_by = "1.3.0"
