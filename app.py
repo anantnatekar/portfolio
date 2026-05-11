@@ -711,9 +711,13 @@ def get_djia_data() -> dict:
         return {"error": str(exc)}
 
 
-def _build_djia_element(djia: dict) -> cl.CustomData:
-    """Build a CustomData element carrying the DJIA payload for the sidebar."""
-    return cl.CustomData(name="djia_panel", data=djia)
+def _build_djia_element(djia: dict) -> cl.Text:
+    """Build a cl.Text element carrying the DJIA HTML for inline display."""
+    return cl.Text(
+        name="djia_panel",
+        content=_djia_sidebar_html(djia),
+        display="inline",
+    )
 
 
 def _djia_sidebar_html(djia: dict) -> str:
@@ -866,14 +870,14 @@ def _format_inline_result(r: dict) -> str:
 
 @cl.on_chat_start
 async def on_chat_start():
-    # ── Fetch DJIA for sidebar ───────────────────────────────────────────────
+    # ── Fetch DJIA and display as inline element ─────────────────────────────
     djia = get_djia_data()
-    djia_html = _djia_sidebar_html(djia)
+    djia_element = _build_djia_element(djia)
 
-    # Send DJIA as a side message element displayed before the welcome message
     await cl.Message(
-        content=djia_html,
-        author="📊 Market Overview",
+        content="📊 **Market Overview — Dow Jones Industrial Average**",
+        elements=[djia_element],
+        author="Market Overview",
     ).send()
 
     # ── Welcome message ──────────────────────────────────────────────────────
