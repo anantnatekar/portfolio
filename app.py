@@ -711,70 +711,35 @@ def get_djia_data() -> dict:
         return {"error": str(exc)}
 
 
-def _build_djia_element(djia: dict) -> cl.Text:
-    """Build a cl.Text element carrying the DJIA HTML for inline display."""
-    return cl.Text(
-        name="djia_panel",
-        content=_djia_sidebar_html(djia),
-        display="inline",
-    )
-
-
-def _djia_sidebar_html(djia: dict) -> str:
-    """Render DJIA data as an HTML CustomData element for Chainlit sidebar."""
+def _djia_markdown(djia: dict) -> str:
+    """Render DJIA data as clean Markdown — works reliably in all Chainlit versions."""
     if "error" in djia:
-        return f"<div style='color:#ff4444'>⚠️ {djia['error']}</div>"
+        return f"⚠️ Could not load DJIA data: {djia['error']}"
 
-    color  = "#22c55e" if djia["direction"] == "up" else "#ef4444"
-    arrow  = "▲" if djia["direction"] == "up" else "▼"
+    arrow = "▲" if djia["direction"] == "up" else "▼"
+    trend = "🟢" if djia["direction"] == "up" else "🔴"
 
-    # Build mini SVG sparkline
-    vals   = djia.get("sparkline", [])
-    spark  = ""
+    # ASCII sparkline from weekly closes (last 20 points)
+    vals = djia.get("sparkline", [])
+    spark = ""
     if vals and len(vals) > 1:
         mn, mx = min(vals), max(vals)
-        rng    = mx - mn or 1
-        w, h   = 200, 50
-        pts    = " ".join(
-            f"{int(i * w / (len(vals)-1))},{int(h - (v - mn) / rng * h)}"
-            for i, v in enumerate(vals)
-        )
-        spark = (
-            f'<svg width="{w}" height="{h}" style="margin-top:8px">'
-            f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2"/>'
-            f'</svg>'
-        )
+        rng = mx - mn or 1
+        bars = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+        sample = vals[-20:]
+        spark = "".join(bars[min(int((v - mn) / rng * 7), 7)] for v in sample)
 
-    return f"""
-<div style="font-family:sans-serif;padding:12px;background:#0f172a;border-radius:10px;color:#e2e8f0;min-width:220px">
-  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:4px">
-    Dow Jones Industrial Average
-  </div>
-  <div style="font-size:28px;font-weight:700;color:#f8fafc">{djia['current']}</div>
-  <div style="font-size:16px;font-weight:600;color:{color};margin-top:2px">
-    {arrow} {djia['change']} ({djia['pct']})
-  </div>
-  {spark}
-  <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div style="background:#1e293b;border-radius:6px;padding:8px">
-      <div style="font-size:10px;color:#94a3b8">1-Year Return</div>
-      <div style="font-size:14px;font-weight:600;color:{color}">{djia['ytd_return']}</div>
-    </div>
-    <div style="background:#1e293b;border-radius:6px;padding:8px">
-      <div style="font-size:10px;color:#94a3b8">30D High</div>
-      <div style="font-size:14px;font-weight:600">{djia['high_30']}</div>
-    </div>
-    <div style="background:#1e293b;border-radius:6px;padding:8px">
-      <div style="font-size:10px;color:#94a3b8">30D Low</div>
-      <div style="font-size:14px;font-weight:600">{djia['low_30']}</div>
-    </div>
-    <div style="background:#1e293b;border-radius:6px;padding:8px">
-      <div style="font-size:10px;color:#94a3b8">Updated</div>
-      <div style="font-size:14px;font-weight:600">{djia['updated']}</div>
-    </div>
-  </div>
-</div>
-"""
+    return (
+        f"## 📊 Dow Jones Industrial Average\n\n"
+        f"### {trend} {djia['current']}  {arrow} {djia['change']} ({djia['pct']})\n\n"
+        f"`{spark}`\n\n"
+        f"| Metric | Value |\n"
+        f"|:---|---:|\n"
+        f"| 📈 1-Year Return | **{djia['ytd_return']}** |\n"
+        f"| 🔺 30D High | {djia['high_30']} |\n"
+        f"| 🔻 30D Low | {djia['low_30']} |\n"
+        f"| 🕐 Updated | {djia['updated']} |\n"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -870,13 +835,10 @@ def _format_inline_result(r: dict) -> str:
 
 @cl.on_chat_start
 async def on_chat_start():
-    # ── Fetch DJIA and display as inline element ─────────────────────────────
+    # ── Fetch DJIA and display as Markdown ───────────────────────────────────
     djia = get_djia_data()
-    djia_element = _build_djia_element(djia)
-
     await cl.Message(
-        content="📊 **Market Overview — Dow Jones Industrial Average**",
-        elements=[djia_element],
+        content=_djia_markdown(djia),
         author="Market Overview",
     ).send()
 
