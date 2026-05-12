@@ -577,16 +577,20 @@ class PortfolioBot:
                     if not cell.fill or cell.fill.fgColor.rgb in ("00000000", "FFFFFFFF"):
                         cell.fill = PatternFill("solid", fgColor="F7F9FC")
 
-        # Make URLs clickable
+        # Make URLs clickable (FIXED: Added proper null/empty checks)
         url_cols = [21, 22, 23, 24]  # SEC URL + 3 news sources
         for col_idx in url_cols:
             for row_idx in range(2, ws.max_row + 1):
                 cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value is not None:
-                    cell_str = str(cell.value)
-                    if cell_str.startswith("http"):
-                        cell.hyperlink = cell.value
-                        cell.font = Font(color="0563C1", underline="single")
+                if cell.value is not None and cell.value != "":
+                    try:
+                        cell_str = str(cell.value).strip()
+                        if cell_str and isinstance(cell_str, str) and cell_str.startswith("http"):
+                            cell.hyperlink = cell.value
+                            cell.font = Font(color="0563C1", underline="single")
+                    except (TypeError, AttributeError):
+                        # Skip if conversion or string operation fails
+                        pass
 
         # Column widths
         col_widths = {
