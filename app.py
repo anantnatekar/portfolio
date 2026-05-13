@@ -265,6 +265,60 @@ def get_pulse_agent() -> ReActAgent:
     )
 
 
+def fetch_news_direct(ticker: str, company_name: str) -> dict:
+    """
+    Fetch news directly via Tavily API without going through the agent pipeline.
+    Returns structured news data reliably.
+    """
+    try:
+        import requests
+        tavily_key = os.environ.get("TAVILY_API_KEY")
+        if not tavily_key:
+            return {"summary": "Tavily API key not set.", "signal": "negative", "urls": []}
+
+        resp = requests.post(
+            "https://api.tavily.com/search",
+            json={
+                "api_key": tavily_key,
+                "query": f"{company_name} {ticker} stock news analyst rating 2025",
+                "search_depth": "basic",
+                "max_results": 5,
+                "include_answer": True,
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Extract answer and URLs
+        answer = data.get("answer", "") or ""
+        results = data.get("results", [])
+        urls = [r.get("url", "") for r in results if r.get("url")][:3]
+        snippets = " ".join(r.get("content", "")[:200] for r in results[:3])
+
+        # Simple sentiment from answer + snippets
+        combined = (answer + " " + snippets).lower()
+        positive_words = ["beat", "strong", "growth", "upgrade", "buy", "bullish",
+                         "record", "surge", "profit", "outperform", "raised"]
+        negative_words = ["miss", "weak", "decline", "downgrade", "sell", "bearish",
+                         "loss", "drop", "risk", "underperform", "cut", "fell"]
+        pos_score = sum(1 for w in positive_words if w in combined)
+        neg_score = sum(1 for w in negative_words if w in combined)
+        signal = "positive" if pos_score >= neg_score else "negative"
+
+        summary = answer if answer else snippets[:400] if snippets else f"No recent news found for {ticker}."
+
+        return {"summary": summary, "signal": signal, "urls": urls}
+
+    except Exception as exc:
+        logger.error("Direct Tavily fetch failed for %s: %s", ticker, exc)
+        return {
+            "summary": f"News fetch failed: {exc}",
+            "signal": "negative",
+            "urls": [],
+        }
+
+
 def get_quant_agent() -> ReActAgent:
     def get_metrics(ticker: str) -> str:
         return json.dumps(get_quant_metrics(ticker))
@@ -374,62 +428,204 @@ class PortfolioBot:
         return None
 
     async def analyse_ticker(self, ticker: str, company_name: str) -> dict:
-        """Run the full agent pipeline for one ticker and return structured result."""
-
-        # Get quant metrics directly — reliable, no LLM needed
-        quant = get_quant_metrics(ticker)
+        """
+        Run full analysis by calling each data source directly,
+        then use LLM only to synthesise the final recommendation.
+        This is more reliable than multi-agent orchestration.
+        """
         today = datetime.now().strftime("%Y-%m-%d")
 
-        prompt = (
-            f"Analyse the equity with ticker '{ticker}' (company: '{company_name}'). "
-            f"Today's date is {today}. "
-            f"Quant data already computed: {json.dumps(quant)}. "
-            f"You MUST: "
-            f"1. Call analyst_agent to get SEC/fundamental risks and signal. "
-            f"2. Call pulse_agent to get news sentiment and signal. "
-            f"3. Call calculate_consensus with quant_signal='{quant.get('signal','negative')}', "
-            f"analyst_signal=<from step 1>, pulse_signal=<from step 2>. "
-            f"4. Respond with ONLY a raw JSON object — absolutely no markdown, no prose, no explanation. "
-            f"The JSON must have exactly these keys: "
+        # ── Step 1: Quant metrics (direct, no LLM) ───────────────────────────
+        quant = get_quant_metrics(ticker)
+        logger.info("Quant metrics for %s: %s", ticker, quant)
+
+        # ── Step 2: Fundamental data (direct SEC + yfinance) ─────────────────
+        fundamental = self._fetch_fundamental(ticker)
+        logger.info("Fundamental for %s: %s", ticker, fundamental.get("summary", "")[:100])
+
+        # ── Step 3: News sentiment (direct Tavily API) ────────────────────────
+        news = fetch_news_direct(ticker, company_name)
+        logger.info("News for %s: signal=%s", ticker, news.get("signal"))
+
+        # ── Step 4: Consensus ─────────────────────────────────────────────────
+        consensus = self.calculate_consensus(
+            quant_sig=quant.get("signal", "negative"),
+            analyst_sig=fundamental.get("signal", "negative"),
+            pulse_sig=news.get("signal", "negative"),
+        )
+
+        # ── Step 5: LLM synthesis only (not orchestration) ───────────────────
+        synthesis_prompt = (
+            f"You are a senior equity analyst. Based on the data below for {company_name} ({ticker}), "
+            f"write a structured analysis. Return ONLY a JSON object starting with {{ and ending with }}.\n\n"
+            f"QUANT DATA: {json.dumps(quant)}\n"
+            f"FUNDAMENTAL DATA: {fundamental.get('summary', 'N/A')}\n"
+            f"NEWS DATA: {news.get('summary', 'N/A')}\n"
+            f"CONSENSUS: {json.dumps(consensus)}\n\n"
+            f"Return JSON with these exact keys:\n"
             f"ticker, company_name, recommendation, confidence, "
             f"quant_signal, fundamental_signal, news_signal, "
             f"ann_return, ann_volatility, sharpe_ratio, current_price, market_cap, pe_ratio, "
             f"52w_high, 52w_low, "
             f"quant_reasoning, fundamental_reasoning, news_reasoning, overall_reasoning, "
-            f"sec_url, news_urls, analysis_date. "
-            f"Start your response with {{ and end with }}."
+            f"sec_url, news_urls, analysis_date"
         )
 
         try:
-            response = await self.workflow.run(user_msg=prompt)
-            raw = str(response).strip()
-            logger.info("Raw agent response for %s: %s", ticker, raw[:300])
-
+            llm_response = await Settings.llm.acomplete(synthesis_prompt)
+            raw = str(llm_response).strip()
+            logger.info("LLM synthesis for %s: %s", ticker, raw[:200])
             result = self._extract_json(raw)
+        except Exception as exc:
+            logger.error("LLM synthesis failed for %s: %s", ticker, exc)
+            result = None
 
-            if result:
-                # Ensure quant fields are always populated from our direct calculation
-                result.setdefault("ticker", ticker)
-                result.setdefault("company_name", company_name)
-                result.setdefault("analysis_date", today)
-                result.setdefault("ann_return", quant.get("ann_return", "N/A"))
-                result.setdefault("ann_volatility", quant.get("ann_volatility", "N/A"))
-                result.setdefault("sharpe_ratio", quant.get("sharpe_ratio", "N/A"))
-                result.setdefault("current_price", quant.get("current_price", "N/A"))
-                result.setdefault("market_cap", quant.get("market_cap", "N/A"))
-                result.setdefault("pe_ratio", quant.get("pe_ratio", "N/A"))
-                result.setdefault("52w_high", quant.get("52w_high", "N/A"))
-                result.setdefault("52w_low", quant.get("52w_low", "N/A"))
-                result.setdefault("news_urls", [])
-                return result
+        if result:
+            # Override with reliable direct data
+            result["ticker"] = ticker
+            result["company_name"] = company_name
+            result["analysis_date"] = today
+            result["recommendation"] = consensus.get("recommendation", result.get("recommendation", "HOLD"))
+            result["confidence"] = consensus.get("confidence", result.get("confidence", "66%"))
+            result["quant_signal"] = quant.get("signal", "N/A")
+            result["fundamental_signal"] = fundamental.get("signal", "N/A")
+            result["news_signal"] = news.get("signal", "N/A")
+            result["ann_return"] = quant.get("ann_return", "N/A")
+            result["ann_volatility"] = quant.get("ann_volatility", "N/A")
+            result["sharpe_ratio"] = quant.get("sharpe_ratio", "N/A")
+            result["current_price"] = quant.get("current_price", "N/A")
+            result["market_cap"] = quant.get("market_cap", "N/A")
+            result["pe_ratio"] = quant.get("pe_ratio", "N/A")
+            result["52w_high"] = quant.get("52w_high", "N/A")
+            result["52w_low"] = quant.get("52w_low", "N/A")
+            result["sec_url"] = fundamental.get("sec_url", "")
+            result["news_urls"] = news.get("urls", [])
+            return result
 
-            # JSON extraction failed — build result from quant + raw text reasoning
-            logger.warning("Could not extract JSON for %s — building from quant + raw text", ticker)
-            return self._build_fallback_result(ticker, company_name, quant, today, raw)
+        # If LLM synthesis fails, build from raw data
+        return self._build_direct_result(
+            ticker, company_name, quant, fundamental, news, consensus, today
+        )
+
+    def _fetch_fundamental(self, ticker: str) -> dict:
+        """Fetch fundamental data directly — same logic as search_web_10k but callable from Python."""
+        import requests
+        sec_url = (
+            f"https://www.sec.gov/cgi-bin/browse-edgar?"
+            f"action=getcompany&CIK={ticker}&type=10-K&dateb=&owner=include&count=5"
+        )
+        headers = {"User-Agent": "PortfolioAI research@portfolioai.com"}
+        sec_summary = ""
+
+        try:
+            tickers_resp = requests.get(
+                "https://www.sec.gov/files/company_tickers.json",
+                headers=headers, timeout=10,
+            )
+            if tickers_resp.status_code == 200:
+                for entry in tickers_resp.json().values():
+                    if entry.get("ticker", "").upper() == ticker.upper():
+                        cik = str(entry["cik_str"]).zfill(10)
+                        facts_resp = requests.get(
+                            f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
+                            headers=headers, timeout=15,
+                        )
+                        if facts_resp.status_code == 200:
+                            facts = facts_resp.json()
+                            us_gaap = facts.get("facts", {}).get("us-gaap", {})
+
+                            def latest_val(concept):
+                                usd = us_gaap.get(concept, {}).get("units", {}).get("USD", [])
+                                annual = [x for x in usd if x.get("form") == "10-K"]
+                                if annual:
+                                    val = annual[-1].get("val", 0)
+                                    return f"${val/1e9:.2f}B" if val >= 1e9 else f"${val/1e6:.2f}M"
+                                return "N/A"
+
+                            revenue = latest_val("Revenues") or latest_val("RevenueFromContractWithCustomerExcludingAssessedTax")
+                            net_income = latest_val("NetIncomeLoss")
+                            total_assets = latest_val("Assets")
+                            sec_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik}&type=10-K&dateb=&owner=include&count=5"
+                            sec_summary = (
+                                f"SEC filing data: Revenue={revenue}, "
+                                f"Net Income={net_income}, Total Assets={total_assets}."
+                            )
+                        break
+        except Exception as exc:
+            logger.warning("SEC lookup failed for %s: %s", ticker, exc)
+
+        try:
+            info = yf.Ticker(ticker).info
+            business = info.get("longBusinessSummary", "")[:500]
+            sector = info.get("sector", "N/A")
+            industry = info.get("industry", "N/A")
+            pe = info.get("trailingPE", "N/A")
+            profit_margin = info.get("profitMargins", "N/A")
+            if isinstance(profit_margin, float):
+                profit_margin = f"{profit_margin:.1%}"
+            debt_equity = info.get("debtToEquity", "N/A")
+
+            yf_summary = (
+                f"Business: {business} "
+                f"Sector: {sector}. Industry: {industry}. "
+                f"P/E: {pe}. Profit Margin: {profit_margin}. Debt/Equity: {debt_equity}."
+            )
+            full_summary = (sec_summary + " " + yf_summary).strip()
+
+            # Determine signal from financial health
+            signal = "positive"
+            if isinstance(pe, (int, float)) and pe > 50:
+                signal = "negative"
+            if isinstance(debt_equity, (int, float)) and debt_equity > 200:
+                signal = "negative"
+            if isinstance(info.get("profitMargins"), float) and info["profitMargins"] < 0:
+                signal = "negative"
+
+            return {"summary": full_summary, "signal": signal, "sec_url": sec_url}
 
         except Exception as exc:
-            logger.error("Workflow error for %s: %s", ticker, exc)
-            return self._build_fallback_result(ticker, company_name, quant, today, str(exc))
+            logger.error("yfinance fundamental failed for %s: %s", ticker, exc)
+            summary = sec_summary or f"Could not retrieve fundamental data for {ticker}."
+            return {"summary": summary, "signal": "negative", "sec_url": sec_url}
+
+    def _build_direct_result(
+        self, ticker, company_name, quant, fundamental, news, consensus, today
+    ) -> dict:
+        """Build a complete result directly from raw data when LLM synthesis fails."""
+        rec = consensus.get("recommendation", "HOLD")
+        conf = consensus.get("confidence", "66%")
+        return {
+            "ticker": ticker,
+            "company_name": company_name,
+            "recommendation": rec,
+            "confidence": conf,
+            "quant_signal": quant.get("signal", "N/A"),
+            "fundamental_signal": fundamental.get("signal", "N/A"),
+            "news_signal": news.get("signal", "N/A"),
+            "ann_return": quant.get("ann_return", "N/A"),
+            "ann_volatility": quant.get("ann_volatility", "N/A"),
+            "sharpe_ratio": quant.get("sharpe_ratio", "N/A"),
+            "current_price": quant.get("current_price", "N/A"),
+            "market_cap": quant.get("market_cap", "N/A"),
+            "pe_ratio": quant.get("pe_ratio", "N/A"),
+            "52w_high": quant.get("52w_high", "N/A"),
+            "52w_low": quant.get("52w_low", "N/A"),
+            "quant_reasoning": (
+                f"Sharpe ratio of {quant.get('sharpe_ratio','N/A')} with annual return of "
+                f"{quant.get('ann_return','N/A')} and volatility of {quant.get('ann_volatility','N/A')}."
+            ),
+            "fundamental_reasoning": fundamental.get("summary", "N/A")[:300],
+            "news_reasoning": news.get("summary", "N/A")[:300],
+            "overall_reasoning": (
+                f"Consensus recommendation of {rec} ({conf} confidence) based on: "
+                f"Quant signal {quant.get('signal','N/A')}, "
+                f"Fundamental signal {fundamental.get('signal','N/A')}, "
+                f"News signal {news.get('signal','N/A')}."
+            ),
+            "sec_url": fundamental.get("sec_url", ""),
+            "news_urls": news.get("urls", []),
+            "analysis_date": today,
+        }
 
     def _build_fallback_result(
         self, ticker: str, company_name: str, quant: dict, today: str, reasoning: str
@@ -740,9 +936,7 @@ def generate_djia_chart(years: int = 10) -> str | None:
 
         close   = hist["Close"]
         dates   = hist["Date"]
-        is_up   = close.iloc[-1] >= close.iloc[0]
-        color   = "#22c55e" if is_up else "#ef4444"
-        fill_color = "rgba(34,197,94,0.08)" if is_up else "rgba(239,68,68,0.08)"
+        color   = "#22c55e" if close.iloc[-1] >= close.iloc[0] else "#ef4444"
 
         # ── Build figure ────────────────────────────────────────────────────
         fig = go.Figure()
@@ -755,7 +949,9 @@ def generate_djia_chart(years: int = 10) -> str | None:
             name="DJIA",
             line=dict(color=color, width=2),
             fill="tozeroy",
-            fillcolor=fill_color,
+            fillcolor=color.replace(")", ", 0.08)").replace("rgb", "rgba") if "rgb" in color
+                      else f"rgba(34,197,94,0.08)" if color == "#22c55e"
+                      else f"rgba(239,68,68,0.08)",
             hovertemplate="<b>%{x|%b %d, %Y}</b><br>DJIA: %{y:,.0f}<extra></extra>",
         ))
 
@@ -980,8 +1176,9 @@ def _format_inline_result(r: dict) -> str:
 
 @cl.on_chat_start
 async def on_chat_start():
-    # ── Fetch DJIA metrics ───────────────────────────────────────────────────
+    # ── Fetch DJIA metrics and generate chart in parallel ────────────────────
     djia = get_djia_data()
+    chart_path = generate_djia_chart(years=10)
 
     # ── Send Markdown metrics summary ────────────────────────────────────────
     await cl.Message(
@@ -990,9 +1187,7 @@ async def on_chat_start():
     ).send()
 
     # ── Attach interactive Plotly chart as downloadable/viewable HTML ────────
-    chart_path = generate_djia_chart(years=10)
-    chart_path = chart_path if (chart_path and os.path.isfile(chart_path) and os.path.getsize(chart_path) > 0) else None
-    if chart_path:
+    if chart_path and os.path.exists(chart_path):
         await cl.Message(
             content=(
                 "📈 **DJIA 10-Year Interactive Chart**\n\n"
@@ -1117,47 +1312,33 @@ async def on_message(message: cl.Message):
         ).send()
 
     # ── Generate and attach Excel ────────────────────────────────────────────
-    excel_path = None
     async with cl.Step(name="📊 Generating Excel report...") as step:
-        try:
-            excel_path = bot.generate_excel(all_results)
-            # Confirm file actually exists and is non-empty before passing to cl.File
-            if not (excel_path and os.path.isfile(excel_path) and os.path.getsize(excel_path) > 0):
-                excel_path = None
-            step.output = "Report ready." if excel_path else "Report generation failed."
-        except Exception as exc:
-            logger.error("Excel generation failed: %s", exc)
-            step.output = "Report generation failed."
+        excel_path = bot.generate_excel(all_results)
+        step.output = "Report ready."
 
     buys  = sum(1 for r in all_results if r.get("recommendation") == "BUY")
     holds = sum(1 for r in all_results if r.get("recommendation") == "HOLD")
     sells = sum(1 for r in all_results if r.get("recommendation") == "SELL")
 
-    summary_content = (
-        f"---\n\n"
-        f"## 📋 Analysis Complete\n\n"
-        f"**{len(all_results)}** equit{'y' if len(all_results)==1 else 'ies'} analysed &nbsp;|&nbsp; "
-        f"✅ **{buys} BUY** &nbsp;|&nbsp; "
-        f"🟡 **{holds} HOLD** &nbsp;|&nbsp; "
-        f"🔴 **{sells} SELL**\n\n"
-        f"The Excel report below contains all results, full reasoning, "
-        f"and clickable links to SEC filings and news sources."
-    )
+    elements = [
+        cl.File(
+            name=os.path.basename(excel_path),
+            path=excel_path,
+            display="inline",
+        )
+    ]
 
-    if excel_path:
-        await cl.Message(
-            content=summary_content,
-            elements=[
-                cl.File(
-                    name=os.path.basename(excel_path),
-                    path=excel_path,
-                    display="inline",
-                )
-            ],
-            author="PortfolioAI",
-        ).send()
-    else:
-        await cl.Message(
-            content=summary_content + "\n\n⚠️ Excel report could not be generated.",
-            author="PortfolioAI",
-        ).send()
+    await cl.Message(
+        content=(
+            f"---\n\n"
+            f"## 📋 Analysis Complete\n\n"
+            f"**{len(all_results)}** equit{'y' if len(all_results)==1 else 'ies'} analysed &nbsp;|&nbsp; "
+            f"✅ **{buys} BUY** &nbsp;|&nbsp; "
+            f"🟡 **{holds} HOLD** &nbsp;|&nbsp; "
+            f"🔴 **{sells} SELL**\n\n"
+            f"The Excel report below contains all results, full reasoning, "
+            f"and clickable links to SEC filings and news sources."
+        ),
+        elements=elements,
+        author="PortfolioAI",
+    ).send()
