@@ -740,7 +740,9 @@ def generate_djia_chart(years: int = 10) -> str | None:
 
         close   = hist["Close"]
         dates   = hist["Date"]
-        color   = "#22c55e" if close.iloc[-1] >= close.iloc[0] else "#ef4444"
+        is_up   = close.iloc[-1] >= close.iloc[0]
+        color   = "#22c55e" if is_up else "#ef4444"
+        fill_color = "rgba(34,197,94,0.08)" if is_up else "rgba(239,68,68,0.08)"
 
         # ── Build figure ────────────────────────────────────────────────────
         fig = go.Figure()
@@ -753,9 +755,7 @@ def generate_djia_chart(years: int = 10) -> str | None:
             name="DJIA",
             line=dict(color=color, width=2),
             fill="tozeroy",
-            fillcolor=color.replace(")", ", 0.08)").replace("rgb", "rgba") if "rgb" in color
-                      else f"rgba(34,197,94,0.08)" if color == "#22c55e"
-                      else f"rgba(239,68,68,0.08)",
+            fillcolor=fill_color,
             hovertemplate="<b>%{x|%b %d, %Y}</b><br>DJIA: %{y:,.0f}<extra></extra>",
         ))
 
@@ -980,9 +980,8 @@ def _format_inline_result(r: dict) -> str:
 
 @cl.on_chat_start
 async def on_chat_start():
-    # ── Fetch DJIA metrics and generate chart in parallel ────────────────────
+    # ── Fetch DJIA metrics ───────────────────────────────────────────────────
     djia = get_djia_data()
-    chart_path = generate_djia_chart(years=10)
 
     # ── Send Markdown metrics summary ────────────────────────────────────────
     await cl.Message(
@@ -991,7 +990,9 @@ async def on_chat_start():
     ).send()
 
     # ── Attach interactive Plotly chart as downloadable/viewable HTML ────────
-    if chart_path and os.path.exists(chart_path):
+    chart_path = generate_djia_chart(years=10)
+    chart_path = chart_path if (chart_path and os.path.isfile(chart_path) and os.path.getsize(chart_path) > 0) else None
+    if chart_path:
         await cl.Message(
             content=(
                 "📈 **DJIA 10-Year Interactive Chart**\n\n"
@@ -1116,33 +1117,47 @@ async def on_message(message: cl.Message):
         ).send()
 
     # ── Generate and attach Excel ────────────────────────────────────────────
+    excel_path = None
     async with cl.Step(name="📊 Generating Excel report...") as step:
-        excel_path = bot.generate_excel(all_results)
-        step.output = "Report ready."
+        try:
+            excel_path = bot.generate_excel(all_results)
+            # Confirm file actually exists and is non-empty before passing to cl.File
+            if not (excel_path and os.path.isfile(excel_path) and os.path.getsize(excel_path) > 0):
+                excel_path = None
+            step.output = "Report ready." if excel_path else "Report generation failed."
+        except Exception as exc:
+            logger.error("Excel generation failed: %s", exc)
+            step.output = "Report generation failed."
 
     buys  = sum(1 for r in all_results if r.get("recommendation") == "BUY")
     holds = sum(1 for r in all_results if r.get("recommendation") == "HOLD")
     sells = sum(1 for r in all_results if r.get("recommendation") == "SELL")
 
-    elements = [
-        cl.File(
-            name=os.path.basename(excel_path),
-            path=excel_path,
-            display="inline",
-        )
-    ]
+    summary_content = (
+        f"---\n\n"
+        f"## 📋 Analysis Complete\n\n"
+        f"**{len(all_results)}** equit{'y' if len(all_results)==1 else 'ies'} analysed &nbsp;|&nbsp; "
+        f"✅ **{buys} BUY** &nbsp;|&nbsp; "
+        f"🟡 **{holds} HOLD** &nbsp;|&nbsp; "
+        f"🔴 **{sells} SELL**\n\n"
+        f"The Excel report below contains all results, full reasoning, "
+        f"and clickable links to SEC filings and news sources."
+    )
 
-    await cl.Message(
-        content=(
-            f"---\n\n"
-            f"## 📋 Analysis Complete\n\n"
-            f"**{len(all_results)}** equit{'y' if len(all_results)==1 else 'ies'} analysed &nbsp;|&nbsp; "
-            f"✅ **{buys} BUY** &nbsp;|&nbsp; "
-            f"🟡 **{holds} HOLD** &nbsp;|&nbsp; "
-            f"🔴 **{sells} SELL**\n\n"
-            f"The Excel report below contains all results, full reasoning, "
-            f"and clickable links to SEC filings and news sources."
-        ),
-        elements=elements,
-        author="PortfolioAI",
-    ).send()
+    if excel_path:
+        await cl.Message(
+            content=summary_content,
+            elements=[
+                cl.File(
+                    name=os.path.basename(excel_path),
+                    path=excel_path,
+                    display="inline",
+                )
+            ],
+            author="PortfolioAI",
+        ).send()
+    else:
+        await cl.Message(
+            content=summary_content + "\n\n⚠️ Excel report could not be generated.",
+            author="PortfolioAI",
+        ).send()
