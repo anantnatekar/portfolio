@@ -1,12 +1,14 @@
 #!/bin/bash
 # =============================================================================
-# setup_ec2.sh — Run this ONCE on a fresh Amazon Linux 2023 EC2 instance
+# setup_ec2.sh — Run ONCE on a fresh Amazon Linux 2023 EC2 instance
+# Use this only if self-hosting on EC2 instead of Railway.
+# For Railway deployment, push to GitHub — CI/CD handles everything.
 # =============================================================================
 set -e
 
 echo "=== Installing Docker ==="
 sudo yum update -y
-sudo yum install -y docker
+sudo yum install -y docker curl
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo usermod -aG docker ec2-user   # lets ec2-user run docker without sudo
@@ -17,40 +19,37 @@ sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
-echo "=== Installing AWS CLI ==="
-sudo yum install -y awscli
-
-echo "=== Creating app directory ==="
+echo "=== Creating app directories ==="
 mkdir -p ~/portfolioai/outputs
 mkdir -p ~/portfolioai/client_input
 
-echo "=== Creating .env file (fill in your values) ==="
+echo "=== Creating .env file (fill in your real values) ==="
 cat > ~/portfolioai/.env << 'EOF'
-AWS_ACCESS_KEY_ID=your_aws_access_key_here
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key_here
-AWS_DEFAULT_REGION=us-east-1
+# ── Required ────────────────────────────────────────────────────────────
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 TAVILY_API_KEY=your_tavily_api_key_here
-EOF
 
-echo "=== Copying docker-compose.yml ==="
-# After running this script, copy your docker-compose.yml into ~/portfolioai/
-# scp docker-compose.yml ec2-user@<EC2_HOST>:~/portfolioai/
+# ── No AWS credentials needed ────────────────────────────────────────────
+# App uses Anthropic Claude API directly (not via Bedrock)
+# Embeddings use HuggingFace (no API key required)
+EOF
 
 echo ""
 echo "============================================================"
 echo "Setup complete. Next steps:"
-echo "  1. Edit ~/portfolioai/.env with your real credentials"
-echo "  2. Copy docker-compose.yml to ~/portfolioai/"
-echo "  3. Create an ECR repository named 'portfolioai':"
-echo "     aws ecr create-repository --repository-name portfolioai --region us-east-1"
-echo "  4. Add these GitHub Secrets to your repo:"
-echo "     AWS_ACCESS_KEY_ID"
-echo "     AWS_SECRET_ACCESS_KEY"
-echo "     AWS_DEFAULT_REGION"
-echo "     TAVILY_API_KEY"
-echo "     EC2_HOST        <- your EC2 public IP or DNS"
-echo "     EC2_USER        <- ec2-user"
-echo "     EC2_SSH_KEY     <- paste the full contents of your .pem file"
-echo "  5. Push to main — the pipeline will do the rest."
-echo "  6. Access the chatbot at: http://<EC2_HOST>:8000"
+echo ""
+echo "  1. Edit ~/portfolioai/.env with your real API keys:"
+echo "     nano ~/portfolioai/.env"
+echo ""
+echo "  2. Copy your project files to the instance:"
+echo "     scp -r . ec2-user@<EC2_HOST>:~/portfolioai/"
+echo ""
+echo "  3. Start the app:"
+echo "     cd ~/portfolioai"
+echo "     docker compose up -d --build"
+echo ""
+echo "  4. Access at: http://<EC2_HOST>:8080"
+echo ""
+echo "  5. View logs:"
+echo "     docker compose logs -f"
 echo "============================================================"

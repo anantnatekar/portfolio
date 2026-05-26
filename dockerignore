@@ -1,21 +1,60 @@
-# Don't bake runtime data or secrets into the image
+# ─── Secrets — never bake into image ─────────────────────────────────────────
+.env
+.env.*
+
+# ─── Runtime data — mounted as volumes in prod, not baked in ─────────────────
 outputs/
 client_input/
 
-# Python cache
+# ─── Python cache ─────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
 
-# Environment files — set via Railway dashboard, never baked into image
-.env
-.env.*
+# ─── HuggingFace model cache (downloaded at runtime, not build time) ──────────
+.cache/
+hf_cache/
 
-# Dev / CI artifacts
+# ─── Chainlit runtime state ───────────────────────────────────────────────────
+.chainlit/
+chainlit.db
+
+# ─── Testing & CI artefacts ───────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+.coverage
+htmlcov/
+tests/
+
+# ─── Git & GitHub ─────────────────────────────────────────────────────────────
 .git/
 .gitignore
 .github/
+
+# ─── Docs & non-runtime markdown ──────────────────────────────────────────────
 *.md
+!README.md             # keep README.md for Railway project introspection
+
+# ─── Local dev only ───────────────────────────────────────────────────────────
 .DS_Store
 setup_ec2.sh
+node_modules/
+portfolioai_dashboard.html
+fastapi_bridge.py
+
+# ─── SonarQube ────────────────────────────────────────────────────────────────
+sonar-project.properties
+
+# ─── IDE ──────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp

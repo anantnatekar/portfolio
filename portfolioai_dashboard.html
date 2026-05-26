@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PortfolioAI — Market Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+/* ── RESET & ROOT ────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:         #080c10;
+  --bg2:        #0d1117;
+  --bg3:        #131920;
+  --bg4:        #1a2230;
+  --border:     rgba(255,255,255,0.07);
+  --border2:    rgba(255,255,255,0.12);
+  --text:       #e8edf3;
+  --text2:      #8b9ab0;
+  --text3:      #5a6a7e;
+  --green:      #00d084;
+  --green-dim:  rgba(0,208,132,0.12);
+  --red:        #ff4d6a;
+  --red-dim:    rgba(255,77,106,0.12);
+  --amber:      #f59e0b;
+  --blue:       #3b82f6;
+  --blue-dim:   rgba(59,130,246,0.12);
+  --accent:     #00d084;
+  --font-serif: 'Instrument Serif', Georgia, serif;
+  --font-sans:  'DM Sans', system-ui, sans-serif;
+  --font-mono:  'DM Mono', 'Courier New', monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13px;line-height:1.5;overflow:hidden}
+
+/* ── TOP BAR ─────────────────────────────────────────────────────────────── */
+.topbar{
+  height:48px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:16px;
+  position:fixed;top:0;left:0;right:0;z-index:100;
+}
+.brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.brand-dot{
+  width:28px;height:28px;border-radius:7px;
+  background:linear-gradient(135deg,#00d084,#00a86b);
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.brand-name{
+  font-family:var(--font-serif);font-size:17px;color:var(--text);
+  letter-spacing:-.01em;
+}
+.brand-name em{color:var(--green);font-style:italic}
+.bar-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.ticker-tape{
+  flex:1;overflow:hidden;display:flex;align-items:center;gap:0;
+  mask-image:linear-gradient(to right,transparent,black 5%,black 95%,transparent);
+}
+.tape-inner{
+  display:flex;gap:0;white-space:nowrap;
+  animation:tape 40s linear infinite;
+}
+.tape-inner:hover{animation-play-state:paused}
+@keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tape-item{
+  display:flex;align-items:center;gap:6px;padding:0 18px;
+  border-right:1px solid var(--border);cursor:pointer;
+  transition:background .15s;
+}
+.tape-item:hover{background:rgba(255,255,255,.04)}
+.ti-sym{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--text)}
+.ti-price{font-family:var(--font-mono);font-size:11px;color:var(--text2)}
+.ti-chg{font-family:var(--font-mono);font-size:11px}
+.up{color:var(--green)}.down{color:var(--red)}
+.bar-time{
+  font-family:var(--font-mono);font-size:11px;color:var(--text3);
+  flex-shrink:0;white-space:nowrap;
+}
+.live-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--green);
+  animation:pulse 2s ease-in-out infinite;flex-shrink:0;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+/* ── LAYOUT ──────────────────────────────────────────────────────────────── */
+.shell{
+  display:grid;grid-template-columns:520px 1fr;
+  height:100vh;padding-top:48px;
+}
+
+/* ── LEFT PANEL ──────────────────────────────────────────────────────────── */
+.left{
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* DJIA HERO */
+.djia-hero{
+  padding:20px 20px 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(160deg,rgba(0,208,132,.03) 0%,transparent 60%);
+  flex-shrink:0;
+}
+.djia-eyebrow{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
+  color:var(--text3);text-transform:uppercase;margin-bottom:6px;
+}
+.djia-name{
+  font-family:var(--font-serif);font-size:13px;color:var(--text2);
+  margin-bottom:10px;font-style:italic;
+}
+.djia-price-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+.djia-price{
+  font-family:var(--font-mono);font-size:36px;font-weight:500;
+  color:var(--text);letter-spacing:-.02em;line-height:1;
+}
+.djia-change-block{display:flex;flex-direction:column;gap:2px}
+.djia-change{font-family:var(--font-mono);font-size:16px;font-weight:500}
+.djia-pct{font-family:var(--font-mono);font-size:13px}
+.djia-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;border-radius:4px;font-size:11px;font-weight:500;
+  font-family:var(--font-mono);margin-bottom:12px;
+}
+.badge-up{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,208,132,.2)}
+.badge-down{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,77,106,.2)}
+
+.djia-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.stat-box{
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:6px;padding:8px 10px;
+}
+.stat-label{font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
+.stat-val{font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--text)}
+
+/* SPARKLINE (canvas) */
+.spark-wrap{height:50px;margin-bottom:4px;position:relative}
+#sparkCanvas{width:100%;height:100%;display:block}
+.spark-label-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:var(--font-mono)}
+
+/* CHART */
+.chart-section{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.chart-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px 8px;flex-shrink:0;
+}
+.chart-title{font-size:12px;font-weight:600;color:var(--text)}
+.tf-row{display:flex;gap:4px}
+.tf-btn{
+  padding:3px 9px;border-radius:4px;font-size:11px;font-family:var(--font-mono);
+  border:1px solid var(--border);background:transparent;color:var(--text3);
+  cursor:pointer;transition:all .15s;
+}
+.tf-btn:hover,.tf-btn.active{background:var(--bg4);color:var(--text);border-color:var(--border2)}
+.chart-wrap{flex:1;padding:0 12px 12px;min-height:0}
+#djiaChart{width:100%;height:100%;border-radius:8px;overflow:hidden}
+
+/* MARKET MOVERS */
+.movers-section{
+  border-top:1px solid var(--border);flex-shrink:0;
+  max-height:220px;overflow-y:auto;
+}
+.movers-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px 6px;position:sticky;top:0;background:var(--bg2);z-index:2;
+}
+.movers-title{font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.06em}
+.movers-tabs{display:flex;gap:2px}
+.m-tab{
+  padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--font-mono);
+  border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s;
+}
+.m-tab.active{background:var(--bg4);color:var(--text)}
+.movers-list{padding:0 12px 8px}
+.mover-row{
+  display:flex;align-items:center;gap:0;padding:6px 8px;
+  border-radius:5px;cursor:pointer;transition:background .12s;
+}
+.mover-row:hover{background:var(--bg3)}
+.m-sym{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--text);width:60px;flex-shrink:0}
+.m-name{font-size:11px;color:var(--text3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-price{font-family:var(--font-mono);font-size:12px;color:var(--text);width:70px;text-align:right;flex-shrink:0}
+.m-chg{font-family:var(--font-mono);font-size:11px;width:60px;text-align:right;flex-shrink:0}
+.m-bar-wrap{width:50px;flex-shrink:0;margin-left:10px}
+.m-bar{height:3px;border-radius:2px;background:var(--border)}
+.m-bar-fill{height:100%;border-radius:2px}
+
+/* NEWS TICKER */
+.news-strip{
+  border-top:1px solid var(--border);
+  height:36px;display:flex;align-items:center;
+  background:var(--bg3);flex-shrink:0;overflow:hidden;
+  padding:0 12px;gap:10px;
+}
+.news-label{
+  font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;
+  letter-spacing:.08em;flex-shrink:0;font-family:var(--font-mono);
+}
+.news-scroll{flex:1;overflow:hidden;position:relative}
+.news-inner{
+  display:flex;gap:0;white-space:nowrap;
+  animation:newstape 60s linear infinite;
+}
+@keyframes newstape{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
+.news-item{
+  padding:0 20px;font-size:11px;color:var(--text2);border-right:1px solid var(--border);
+}
+.news-item span{color:var(--text3);margin-right:6px}
+
+/* ── RIGHT PANEL — PortfolioAI ───────────────────────────────────────────── */
+.right{
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);
+}
+.right-header{
+  height:44px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;
+}
+.rh-title{
+  font-family:var(--font-serif);font-size:15px;color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.rh-title strong{color:var(--green)}
+.rh-sep{flex:1}
+.rh-badge{
+  font-family:var(--font-mono);font-size:10px;
+  padding:2px 8px;border-radius:3px;
+  background:var(--green-dim);color:var(--green);
+  border:1px solid rgba(0,208,132,.2);
+  display:flex;align-items:center;gap:5px;
+}
+.rh-agents{display:flex;gap:6px}
+.agent-pill{
+  font-size:10px;padding:2px 8px;border-radius:3px;font-family:var(--font-mono);
+  border:1px solid var(--border);color:var(--text3);background:var(--bg3);
+}
+.portfolioai-frame{
+  flex:1;border:none;width:100%;display:block;
+  background:var(--bg);
+}
+
+/* ── LOADING OVERLAY ─────────────────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;z-index:1000;
+  background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+  transition:opacity .6s;
+}
+.overlay.hidden{opacity:0;pointer-events:none}
+.ol-logo{font-family:var(--font-serif);font-size:32px;color:var(--text)}
+.ol-logo em{color:var(--green);font-style:italic}
+.ol-sub{font-size:12px;color:var(--text3);font-family:var(--font-mono)}
+.ol-bar{width:200px;height:2px;background:var(--bg3);border-radius:1px;overflow:hidden}
+.ol-progress{height:100%;background:var(--green);border-radius:1px;animation:load 1.5s ease-out forwards}
+@keyframes load{from{width:0}to{width:100%}}
+
+/* ── SCROLLBARS ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* ── COMMENTARY MODAL ────────────────────────────────────────────────────── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-bg.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
+  width:480px;max-width:90vw;padding:24px;
+  transform:translateY(10px);transition:transform .2s;
+}
+.modal-bg.open .modal{transform:translateY(0)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-title{font-family:var(--font-serif);font-size:18px;color:var(--text)}
+.modal-close{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-body{font-size:13px;color:var(--text2);line-height:1.7}
+.modal-body p{margin-bottom:10px}
+.modal-body strong{color:var(--text)}
+
+/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .right{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="overlay" id="overlay">
+  <div class="ol-logo">Portfolio<em>AI</em></div>
+  <div class="ol-sub">Loading market intelligence…</div>
+  <div class="ol-bar"><div class="ol-progress"></div></div>
+</div>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-dot">📈</div>
+    <span class="brand-name">Portfolio<em>AI</em></span>
+  </div>
+  <div class="bar-sep"></div>
+  <div class="live-dot"></div>
+  <div class="ticker-tape" id="tickerTape">
+    <div class="tape-inner" id="tapeInner">
+      <!-- populated by JS -->
+    </div>
+  </div>
+  <div class="bar-sep"></div>
+  <div class="bar-time" id="barTime">—</div>
+</header>
+
+<!-- MAIN SHELL -->
+<div class="shell">
+
+  <!-- ── LEFT: MARKET DASHBOARD ─────────────────────────────────────── -->
+  <aside class="left">
+
+    <!-- DJIA HERO -->
+    <div class="djia-hero">
+      <div class="djia-eyebrow">DOW JONES INDUSTRIAL AVERAGE · ^DJI</div>
+      <div class="djia-name">Dow Jones Industrial Average</div>
+
+      <div class="djia-price-row">
+        <div class="djia-price" id="djiaPrice">—</div>
+        <div class="djia-change-block">
+          <div class="djia-change up" id="djiaChange">—</div>
+          <div class="djia-pct up" id="djiaPct">—</div>
+        </div>
+      </div>
+
+      <div class="djia-badge badge-up" id="djiaBadge">
+        <span id="badgeArrow">▲</span>
+        <span id="badgeText">Market loading…</span>
+      </div>
+
+      <div class="djia-stats">
+        <div class="stat-box">
+          <div class="stat-label">Open</div>
+          <div class="stat-val" id="statOpen">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Day High</div>
+          <div class="stat-val" id="statHigh">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Day Low</div>
+          <div class="stat-val" id="statLow">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Volume</div>
+          <div class="stat-val" id="statVol">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">52W High</div>
+          <div class="stat-val" id="stat52H">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">52W Low</div>
+          <div class="stat-val" id="stat52L">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">1Y Return</div>
+          <div class="stat-val" id="stat1Y">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">P/E Ratio</div>
+          <div class="stat-val" id="statPE">~21x</div>
+        </div>
+      </div>
+
+      <!-- Sparkline -->
+      <div class="spark-wrap"><canvas id="sparkCanvas"></canvas></div>
+      <div class="spark-label-row">
+        <span id="sparkStart">1Y ago</span>
+        <span style="color:var(--text2);font-size:10px">52-week price range</span>
+        <span>Today</span>
+      </div>
+    </div>
+
+    <!-- INTERACTIVE CHART -->
+    <div class="chart-section">
+      <div class="chart-header">
+        <div class="chart-title">DJIA Price Chart</div>
+        <div class="tf-row">
+          <button class="tf-btn" data-tf="1mo">1M</button>
+          <button class="tf-btn" data-tf="3mo">3M</button>
+          <button class="tf-btn active" data-tf="1y">1Y</button>
+          <button class="tf-btn" data-tf="2y">2Y</button>
+          <button class="tf-btn" data-tf="5y">5Y</button>
+          <button class="tf-btn" data-tf="10y">10Y</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <div id="djiaChart"></div>
+      </div>
+    </div>
+
+    <!-- MARKET MOVERS -->
+    <div class="movers-section">
+      <div class="movers-header">
+        <div class="movers-title">DJIA Components</div>
+        <div class="movers-tabs">
+          <button class="m-tab active" id="tabGainers" onclick="showMovers('gainers')">Gainers</button>
+          <button class="m-tab" id="tabLosers" onclick="showMovers('losers')">Losers</button>
+          <button class="m-tab" id="tabAll" onclick="showMovers('all')">All 30</button>
+        </div>
+      </div>
+      <div class="movers-list" id="moversList">
+        <div style="padding:12px 8px;color:var(--text3);font-size:11px">Loading components…</div>
+      </div>
+    </div>
+
+    <!-- NEWS STRIP -->
+    <div class="news-strip">
+      <div class="news-label">News</div>
+      <div class="news-scroll">
+        <div class="news-inner" id="newsInner">
+          <div class="news-item"><span>DJIA</span>Markets await Fed minutes for rate path signals</div>
+          <div class="news-item"><span>NVDA</span>AI chip demand surges — analysts raise price targets</div>
+          <div class="news-item"><span>AAPL</span>iPhone cycle boosting services revenue outlook</div>
+          <div class="news-item"><span>JPM</span>Q2 earnings beat on trading revenue strength</div>
+          <div class="news-item"><span>MSFT</span>Azure AI growth accelerating into fiscal year-end</div>
+          <div class="news-item"><span>GS</span>Investment banking fees rebounding from 2-year low</div>
+          <div class="news-item"><span>UNH</span>Healthcare costs normalise — margins recovering</div>
+          <div class="news-item"><span>DJIA</span>Markets await Fed minutes for rate path signals</div>
+          <div class="news-item"><span>NVDA</span>AI chip demand surges — analysts raise price targets</div>
+          <div class="news-item"><span>AAPL</span>iPhone cycle boosting services revenue outlook</div>
+        </div>
+      </div>
+    </div>
+
+  </aside><!-- /left -->
+
+  <!-- ── RIGHT: PORTFOLIOAI ─────────────────────────────────────────── -->
+  <main class="right">
+    <div class="right-header">
+      <div class="rh-title">
+        <span>Portfolio<strong>AI</strong></span>
+        <span style="font-size:12px;color:var(--text3);font-family:var(--font-sans)">— Equity Research Agent</span>
+      </div>
+      <div class="rh-sep"></div>
+      <div class="rh-agents">
+        <div class="agent-pill">📈 Quant</div>
+        <div class="agent-pill">🏛 Fundamental</div>
+        <div class="agent-pill">📰 Sentiment</div>
+      </div>
+      <div style="width:8px"></div>
+      <div class="rh-badge">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block"></span>
+        Live
+      </div>
+    </div>
+    <iframe
+      class="portfolioai-frame"
+      id="portfolioFrame"
+      src="https://portfolio-production-a9a0.up.railway.app/"
+      title="PortfolioAI — Equity Research Agent"
+      allow="microphone *; clipboard-write *"
+      loading="eager"
+    ></iframe>
+  </main>
+
+</div><!-- /shell -->
+
+<!-- MARKET COMMENTARY MODAL -->
+<div class="modal-bg" id="modalBg" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">Market Commentary</div>
+      <button class="modal-close" onclick="document.getElementById('modalBg').classList.remove('open')">×</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+const PORTFOLIOAI_URL = "https://portfolio-production-a9a0.up.railway.app/";
+
+// DJIA component tickers (Dow 30)
+const DOW30 = [
+  "AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
+  "GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
+  "MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"
+];
+
+// Tape tickers
+const TAPE_TICKERS = [
+  "^DJI","^GSPC","^IXIC","^RUT","GLD","USO","^TNX",
+  "AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","JPM","V","UNH"
+];
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let djiaData        = {};
+let chartSeries     = null;
+let chartInstance   = null;
+let moverData       = [];
+let currentMovers   = 'gainers';
+let currentTF       = '1y';
+
+// ── UTILITIES ────────────────────────────────────────────────────────────────
+const fmt  = (n, d=2) => Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtM = n => {
+  if(!n||isNaN(n)) return '—';
+  if(n>=1e12) return '$'+(n/1e12).toFixed(2)+'T';
+  if(n>=1e9)  return '$'+(n/1e9).toFixed(2)+'B';
+  if(n>=1e6)  return '$'+(n/1e6).toFixed(2)+'M';
+  return '$'+n.toLocaleString();
+};
+
+const $ = id => document.getElementById(id);
+
+// ── CLOCK ────────────────────────────────────────────────────────────────────
+function updateClock(){
+  const now = new Date();
+  const et  = new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const hh  = String(et.getHours()).padStart(2,'0');
+  const mm  = String(et.getMinutes()).padStart(2,'0');
+  const ss  = String(et.getSeconds()).padStart(2,'0');
+  const day = et.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  // Is market open? NYSE: 9:30–16:00 ET, Mon–Fri
+  const h=et.getHours(), m=et.getMinutes(), dow=et.getDay();
+  const open = dow>=1&&dow<=5 && (h>9||(h===9&&m>=30)) && h<16;
+  $('barTime').textContent = `${day}  ${hh}:${mm}:${ss} ET  ${open?'🟢 OPEN':'🔴 CLOSED'}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── YAHOO FINANCE FETCH ───────────────────────────────────────────────────────
+async function yFetch(ticker, range='1y', interval='1d'){
+  const proxy = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+  const url = `${proxy}${encodeURIComponent(ticker)}?range=${range}&interval=${interval}&includePrePost=false&events=div,split`;
+  try{
+    const r = await fetch(url, {headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error(r.status);
+    return await r.json();
+  }catch(e){
+    // Try v7 as fallback
+    try{
+      const r2 = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`);
+      if(!r2.ok) throw new Error(r2.status);
+      return await r2.json();
+    }catch(e2){
+      console.warn('YF fetch failed for', ticker, e2);
+      return null;
+    }
+  }
+}
+
+// ── DJIA HERO ────────────────────────────────────────────────────────────────
+async function loadDJIA(){
+  const data = await yFetch('^DJI','5d','1d');
+  if(!data) return;
+  try{
+    const meta   = data.chart.result[0].meta;
+    const quotes = data.chart.result[0].indicators.quote[0];
+    const closes = data.chart.result[0].timestamps;
+
+    const current  = meta.regularMarketPrice || meta.previousClose;
+    const prev     = meta.chartPreviousClose  || meta.previousClose;
+    const change   = current - prev;
+    const pct      = (change / prev)*100;
+    const isUp     = change >= 0;
+
+    // Price display
+    $('djiaPrice').textContent  = fmt(current,2);
+    $('djiaChange').textContent = (isUp?'+':'')+fmt(change,2);
+    $('djiaPct').textContent    = (isUp?'+':'')+pct.toFixed(2)+'%';
+
+    const cls = isUp ? 'up' : 'down';
+    $('djiaChange').className   = `djia-change ${cls}`;
+    $('djiaPct').className      = `djia-pct ${cls}`;
+
+    // Badge
+    const badge = $('djiaBadge');
+    badge.className = `djia-badge ${isUp?'badge-up':'badge-down'}`;
+    $('badgeArrow').textContent = isUp?'▲':'▼';
+    $('badgeText').textContent  = isUp
+      ? `Rising — ${pct.toFixed(2)}% gain today`
+      : `Declining — ${Math.abs(pct).toFixed(2)}% loss today`;
+
+    // Stats
+    $('statOpen').textContent = fmt(meta.regularMarketOpen||prev);
+    $('statHigh').textContent = fmt(meta.regularMarketDayHigh||current);
+    $('statLow').textContent  = fmt(meta.regularMarketDayLow||current);
+    const vol = meta.regularMarketVolume;
+    $('statVol').textContent  = vol ? (vol>=1e9?(vol/1e9).toFixed(1)+'B':(vol/1e6).toFixed(0)+'M') : '—';
+    $('stat52H').textContent  = meta.fiftyTwoWeekHigh ? fmt(meta.fiftyTwoWeekHigh) : '—';
+    $('stat52L').textContent  = meta.fiftyTwoWeekLow  ? fmt(meta.fiftyTwoWeekLow)  : '—';
+
+    djiaData = {current,prev,change,pct,isUp,meta};
+
+  }catch(e){ console.warn('DJIA parse error',e); }
+
+  // 1Y for sparkline and return
+  await loadSparkline();
+}
+
+async function loadSparkline(){
+  const data = await yFetch('^DJI','1y','1wk');
+  if(!data) return;
+  try{
+    const result = data.chart.result[0];
+    const closes = result.indicators.quote[0].close.filter(Boolean);
+    if(!closes.length) return;
+
+    const start = closes[0], end = closes[closes.length-1];
+    const ret   = ((end-start)/start)*100;
+    $('stat1Y').textContent = (ret>=0?'+':'')+ret.toFixed(2)+'%';
+    $('stat1Y').style.color = ret>=0?'var(--green)':'var(--red)';
+
+    // Draw sparkline on canvas
+    drawSparkline(closes);
+  }catch(e){}
+}
+
+function drawSparkline(closes){
+  const canvas = $('sparkCanvas');
+  if(!canvas) return;
+  const dpr = window.devicePixelRatio||1;
+  const W   = canvas.offsetWidth;
+  const H   = canvas.offsetHeight;
+  canvas.width  = W*dpr;
+  canvas.height = H*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  const mn  = Math.min(...closes);
+  const mx  = Math.max(...closes);
+  const pad = 4;
+  const isUp= closes[closes.length-1] >= closes[0];
+  const col = isUp ? '#00d084' : '#ff4d6a';
+
+  ctx.clearRect(0,0,W,H);
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, isUp?'rgba(0,208,132,0.25)':'rgba(255,77,106,0.25)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+
+  const xStep = (W-pad*2)/(closes.length-1);
+  const yScale= (H-pad*2)/(mx-mn||1);
+
+  ctx.beginPath();
+  closes.forEach((c,i)=>{
+    const x = pad + i*xStep;
+    const y = H - pad - (c-mn)*yScale;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  // close path for fill
+  const lastX = pad+(closes.length-1)*xStep;
+  ctx.lineTo(lastX, H);
+  ctx.lineTo(pad, H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  closes.forEach((c,i)=>{
+    const x = pad+i*xStep;
+    const y = H - pad - (c-mn)*yScale;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = col;
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+
+  // Current dot
+  const lx = pad+(closes.length-1)*xStep;
+  const ly = H - pad - (closes[closes.length-1]-mn)*yScale;
+  ctx.beginPath();
+  ctx.arc(lx,ly,3,0,Math.PI*2);
+  ctx.fillStyle = col;
+  ctx.fill();
+}
+
+// ── INTERACTIVE CHART (LightweightCharts) ─────────────────────────────────────
+async function loadChart(tf){
+  currentTF = tf;
+  document.querySelectorAll('.tf-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.tf===tf);
+  });
+
+  const wrap = $('djiaChart');
+  wrap.innerHTML = '';
+
+  const data = await yFetch('^DJI', tf, tf==='10y'?'1wk':tf==='5y'?'1wk':tf==='2y'?'1wk':'1d');
+  if(!data?.chart?.result?.[0]) {
+    wrap.innerHTML='<div style="padding:20px;color:var(--text3);font-size:11px">Chart data unavailable.</div>';
+    return;
+  }
+
+  const result    = data.chart.result[0];
+  const stamps    = result.timestamps;
+  const closes    = result.indicators.quote[0].close;
+  const isUp      = (closes.filter(Boolean).pop()||0) >= (closes.find(Boolean)||0);
+  const lineColor = isUp ? '#00d084' : '#ff4d6a';
+  const areaTop   = isUp ? 'rgba(0,208,132,0.25)' : 'rgba(255,77,106,0.25)';
+
+  // Build series data
+  const seriesData = stamps.map((ts,i)=>{
+    if(!closes[i]) return null;
+    return { time: Math.floor(ts), value: closes[i] };
+  }).filter(Boolean);
+
+  // Create chart
+  chartInstance = LightweightCharts.createChart(wrap, {
+    width:  wrap.offsetWidth,
+    height: wrap.offsetHeight||220,
+    layout: { background:{color:'transparent'}, textColor:'#8b9ab0' },
+    grid:   { vertLines:{color:'rgba(255,255,255,0.04)'}, horzLines:{color:'rgba(255,255,255,0.04)'} },
+    rightPriceScale:{ borderColor:'rgba(255,255,255,0.08)', scaleMargins:{top:.1,bottom:.1} },
+    timeScale: { borderColor:'rgba(255,255,255,0.08)', timeVisible:true, secondsVisible:false },
+    crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
+    handleScroll: true,
+    handleScale:  true,
+  });
+
+  chartSeries = chartInstance.addAreaSeries({
+    lineColor,
+    topColor:    areaTop,
+    bottomColor: 'rgba(0,0,0,0)',
+    lineWidth:   2,
+    priceLineVisible: true,
+    priceLineColor: lineColor,
+  });
+  chartSeries.setData(seriesData);
+  chartInstance.timeScale().fitContent();
+
+  // Resize observer
+  const ro = new ResizeObserver(()=>{
+    if(chartInstance){
+      chartInstance.applyOptions({width:wrap.offsetWidth,height:wrap.offsetHeight});
+    }
+  });
+  ro.observe(wrap);
+}
+
+document.querySelectorAll('.tf-btn').forEach(b=>{
+  b.addEventListener('click',()=>loadChart(b.dataset.tf));
+});
+
+// ── TICKER TAPE ───────────────────────────────────────────────────────────────
+async function buildTape(){
+  const results = await Promise.allSettled(
+    TAPE_TICKERS.map(t=>yFetch(t,'5d','1d'))
+  );
+
+  let html='';
+  results.forEach((r,i)=>{
+    if(r.status!=='fulfilled'||!r.value?.chart?.result?.[0]) return;
+    const meta   = r.value.chart.result[0].meta;
+    const price  = meta.regularMarketPrice || meta.previousClose || 0;
+    const prev   = meta.chartPreviousClose || meta.previousClose || price;
+    const change = price - prev;
+    const pct    = (change/prev)*100;
+    const isUp   = change >= 0;
+    const sym    = TAPE_TICKERS[i];
+    const label  = sym.startsWith('^') ? {'^DJI':'DJIA','^GSPC':'S&P 500','^IXIC':'NASDAQ','^RUT':'Russell 2K','^TNX':'10Y Treasury'}[sym]||sym : sym;
+
+    html += `<div class="tape-item" onclick="analyseFromTape('${sym.replace('^','')}')" title="Click to analyse in PortfolioAI">
+      <span class="ti-sym">${label}</span>
+      <span class="ti-price">${fmt(price)}</span>
+      <span class="ti-chg ${isUp?'up':'down'}">${isUp?'▲':'▼'}${Math.abs(pct).toFixed(2)}%</span>
+    </div>`;
+  });
+  // Duplicate for seamless loop
+  $('tapeInner').innerHTML = html+html;
+}
+
+function analyseFromTape(sym){
+  // Send the ticker to PortfolioAI via postMessage
+  const frame = $('portfolioFrame');
+  if(frame){
+    frame.contentWindow.postMessage({type:'analyse',ticker:sym},'*');
+  }
+}
+
+// ── DOW 30 MOVERS ─────────────────────────────────────────────────────────────
+async function loadDow30(){
+  const chunks = [];
+  for(let i=0;i<DOW30.length;i+=5) chunks.push(DOW30.slice(i,i+5));
+
+  const results = [];
+  for(const chunk of chunks){
+    const res = await Promise.allSettled(chunk.map(t=>yFetch(t,'5d','1d')));
+    res.forEach((r,i)=>{
+      if(r.status!=='fulfilled'||!r.value?.chart?.result?.[0]) return;
+      const meta   = r.value.chart.result[0].meta;
+      const price  = meta.regularMarketPrice||0;
+      const prev   = meta.chartPreviousClose||price;
+      const change = price-prev;
+      const pct    = prev ? (change/prev)*100 : 0;
+      results.push({ sym:chunk[i], price, change, pct, isUp:change>=0 });
+    });
+  }
+
+  moverData = results;
+  showMovers(currentMovers);
+}
+
+function showMovers(mode){
+  currentMovers = mode;
+  ['tabGainers','tabLosers','tabAll'].forEach(id=>{
+    $(id).classList.remove('active');
+  });
+  $({gainers:'tabGainers',losers:'tabLosers',all:'tabAll'}[mode]).classList.add('active');
+
+  let rows = [...moverData];
+  if(mode==='gainers') rows = rows.filter(r=>r.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,8);
+  if(mode==='losers')  rows = rows.filter(r=>r.pct<0).sort((a,b)=>a.pct-b.pct).slice(0,8);
+  if(mode==='all')     rows = rows.sort((a,b)=>b.pct-a.pct);
+
+  const maxAbs = Math.max(...rows.map(r=>Math.abs(r.pct)),1);
+
+  $('moversList').innerHTML = rows.map(r=>`
+    <div class="mover-row" onclick="showCommentary('${r.sym}',${r.price},${r.change},${r.pct})" title="Click for market commentary">
+      <div class="m-sym">${r.sym}</div>
+      <div class="m-name">${r.sym}</div>
+      <div class="m-price">${fmt(r.price)}</div>
+      <div class="m-chg ${r.isUp?'up':'down'}">${r.isUp?'+':''}${r.pct.toFixed(2)}%</div>
+      <div class="m-bar-wrap">
+        <div class="m-bar">
+          <div class="m-bar-fill" style="width:${Math.abs(r.pct)/maxAbs*100}%;background:${r.isUp?'var(--green)':'var(--red)'}"></div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── COMMENTARY MODAL ──────────────────────────────────────────────────────────
+function showCommentary(sym, price, change, pct){
+  const isUp = change >= 0;
+  const sentiment = isUp
+    ? (pct>2?'Strong bullish momentum':'Modest gains')
+    : (pct<-2?'Significant selling pressure':'Slight weakness');
+
+  $('modalTitle').textContent = `${sym} — Market Commentary`;
+  $('modalBody').innerHTML = `
+    <p><strong>${sym}</strong> is trading at <strong>$${fmt(price)}</strong>, 
+    ${isUp?'up':'down'} <strong>${Math.abs(pct).toFixed(2)}%</strong> today 
+    (${isUp?'+':''}$${fmt(Math.abs(change))}).</p>
+    <p><strong>Sentiment:</strong> ${sentiment}. ${isUp
+      ? 'Buyers are in control with positive price action. Watch for continuation above key resistance levels.'
+      : 'Sellers are dominant. Monitor support levels for potential stabilisation or reversal signals.'
+    }</p>
+    <p>Run a full AI analysis — including Quantitative metrics, SEC fundamental review, and live News Sentiment — using the PortfolioAI agent on the right. Enter <strong>${sym}</strong> in the chat to receive a BUY / HOLD / SELL recommendation with full reasoning.</p>
+    <p style="margin-top:12px">
+      <button onclick="analyseThis('${sym}');document.getElementById('modalBg').classList.remove('open')" 
+        style="padding:8px 16px;border-radius:6px;background:var(--green);color:#000;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-mono)">
+        ▶ Analyse ${sym} in PortfolioAI
+      </button>
+    </p>
+  `;
+  $('modalBg').classList.add('open');
+}
+
+function closeModal(e){
+  if(e.target===$('modalBg')) $('modalBg').classList.remove('open');
+}
+
+function analyseThis(sym){
+  const frame = $('portfolioFrame');
+  if(frame){
+    frame.contentWindow.postMessage({type:'analyse',ticker:sym},'*');
+  }
+}
+
+// ── BACKEND BRIDGE (for local Chainlit integration) ───────────────────────────
+// When running PortfolioAI locally (python app.py + fastapi_bridge.py),
+// this allows direct API calls. Falls back gracefully to iframe when remote.
+const BRIDGE_URL = 'http://localhost:8001';
+
+async function callBridgeAPI(endpoint, body){
+  try{
+    const r = await fetch(BRIDGE_URL+endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000),
+    });
+    return await r.json();
+  }catch(e){
+    return null; // Bridge not running — iframe mode
+  }
+}
+
+// Refresh DJIA every 60 seconds during market hours
+function startMarketRefresh(){
+  setInterval(async ()=>{
+    await loadDJIA();
+    drawSparkline([]); // redraw will be called inside loadSparkline
+  }, 60000);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+async function init(){
+  // Load all market data in parallel
+  await Promise.all([
+    loadDJIA(),
+    buildTape(),
+    loadChart('1y'),
+    loadDow30(),
+  ]);
+
+  // Hide loading overlay
+  setTimeout(()=>{
+    $('overlay').classList.add('hidden');
+    setTimeout(()=>{ $('overlay').style.display='none'; }, 700);
+  }, 1200);
+
+  startMarketRefresh();
+}
+
+// Wait for LightweightCharts to be ready
+window.addEventListener('load', init);
+
+// Redraw sparkline on resize
+window.addEventListener('resize',()=>{
+  if(djiaData.current) loadSparkline();
+});
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     FASTAPI BRIDGE SCRIPT
+     Save as fastapi_bridge.py alongside app.py
+     Run: uvicorn fastapi_bridge:app --port 8001
+     This exposes REST endpoints the dashboard can call for deeper integration
+═══════════════════════════════════════════════════════════════════════════════
+# fastapi_bridge.py
+#
+# pip install fastapi uvicorn python-multipart
+#
+# Paste this into a new file: fastapi_bridge.py
+#
+# from fastapi import FastAPI
+# from fastapi.middleware.cors import CORSMiddleware
+# from pydantic import BaseModel
+# import yfinance as yf, numpy as np
+# from datetime import datetime
+# from app import get_djia_data, get_quant_metrics, PortfolioBot
+# import asyncio
+#
+# app = FastAPI(title="PortfolioAI Bridge", version="1.0")
+# app.add_middleware(CORSMiddleware,
+#     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+#
+# bot = PortfolioBot()
+#
+# class TickerReq(BaseModel):
+#     ticker: str
+#     company_name: str = ""
+#
+# @app.get("/djia")
+# def djia():
+#     return get_djia_data()
+#
+# @app.post("/quant")
+# def quant(req: TickerReq):
+#     return get_quant_metrics(req.ticker)
+#
+# @app.post("/analyse")
+# async def analyse(req: TickerReq):
+#     return await bot.analyse_ticker(req.ticker, req.company_name or req.ticker)
+#
+# @app.get("/health")
+# def health():
+#     return {"status": "ok", "time": datetime.now().isoformat()}
+═══════════════════════════════════════════════════════════════════════════ -->
+
+</body>
+</html>

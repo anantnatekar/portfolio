@@ -1,19 +1,65 @@
-# Secrets — never commit these
+# ─── Secrets — NEVER commit these ────────────────────────────────────────────
 .env
 .env.*
+!.env.example          # keep the example template committed
 
-# Runtime output
+# ─── Runtime output (ephemeral, not source code) ──────────────────────────────
 outputs/
 client_input/
+coverage.xml
+.coverage
+htmlcov/
 
-# Python
+# ─── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.egg-info/
+*.egg
 dist/
 build/
+.eggs/
+.venv/
+venv/
+env/
+pip-wheel-metadata/
 
-# macOS
+# ─── Chainlit runtime ─────────────────────────────────────────────────────────
+.chainlit/             # Chainlit persists session state here — not source code
+chainlit.db            # local SQLite thread DB if persistence enabled
+
+# ─── HuggingFace model cache (large binary files — never commit) ──────────────
+.cache/
+hf_cache/
+/tmp/hf_cache/
+
+# ─── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ─── IDE / editors ────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── Testing & coverage ───────────────────────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ─── Node (Railway CLI, any local tooling) ────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ─── Generated dashboard / bridge files (local dev only) ─────────────────────
+portfolioai_dashboard.html
+fastapi_bridge.py
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/

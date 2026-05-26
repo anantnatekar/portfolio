@@ -1070,17 +1070,17 @@ def _djia_markdown(djia: dict) -> str:
         sample = vals[-20:]
         spark = "".join(bars[min(int((v - mn) / rng * 7), 7)] for v in sample)
 
-    return (
-        f"## 📊 Dow Jones Industrial Average\n\n"
-        f"### {trend} {djia['current']}  {arrow} {djia['change']} ({djia['pct']})\n\n"
-        f"`{spark}`\n\n"
-        f"| Metric | Value |\n"
-        f"|:---|---:|\n"
-        f"| 📈 1-Year Return | **{djia['ytd_return']}** |\n"
-        f"| 🔺 30D High | {djia['high_30']} |\n"
-        f"| 🔻 30D Low | {djia['low_30']} |\n"
-        f"| 🕐 Updated | {djia['updated']} |\n"
-    )
+#    return (
+#        f"## 📊 Dow Jones Industrial Average\n\n"
+#        f"### {trend} {djia['current']}  {arrow} {djia['change']} ({djia['pct']})\n\n"
+#        f"`{spark}`\n\n"
+#        f"| Metric | Value |\n"
+#        f"|:---|---:|\n"
+#        f"| 📈 1-Year Return | **{djia['ytd_return']}** |\n"
+#        f"| 🔺 30D High | {djia['high_30']} |\n"
+#        f"| 🔻 30D Low | {djia['low_30']} |\n"
+#        f"| 🕐 Updated | {djia['updated']} |\n"
+#    )
 
 
 # ---------------------------------------------------------------------------

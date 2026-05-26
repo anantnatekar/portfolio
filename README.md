@@ -1,16 +1,19 @@
 # PortfolioAI
 
-An AI-powered equity analysis chatbot built with Chainlit, LlamaIndex, and Amazon Bedrock. Analyses stocks using three specialised agents — Quant, Fundamental (SEC filings), and News Sentiment — and delivers a **BUY / HOLD / SELL** recommendation with full reasoning and a downloadable Excel report.
+An AI-powered equity research platform built with Chainlit, LlamaIndex, and the Anthropic Claude API. Analyses stocks using three independent ReAct agents — Quant, Fundamental (SEC filings), and News Sentiment — and delivers a **BUY / HOLD / SELL** recommendation with full reasoning and a downloadable Excel report.
+
+**Live app:** [portfolio-production-a9a0.up.railway.app](https://portfolio-production-a9a0.up.railway.app/)
 
 ---
 
 ## Features
 
 - **Multi-equity analysis** — enter one ticker, multiple tickers, company names, or upload a CSV/Excel file
-- **Three-agent pipeline** — Quant (Sharpe ratio, returns, volatility), Fundamental (SEC 10-K filings), News (real-time sentiment via Tavily)
-- **On-screen result cards** — per-equity recommendation with metrics, reasoning, and source links
-- **Downloadable Excel report** — colour-coded recommendations, full reasoning, clickable SEC and news URLs
-- **Powered by Claude on Amazon Bedrock**
+- **Three-agent pipeline** — Quant (Sharpe ratio, annual return, volatility), Fundamental (live SEC EDGAR 10-K filings via RAG), News (real-time sentiment via Tavily Search)
+- **On-screen result cards** — per-equity recommendation with metrics, reasoning, and source links as each agent completes
+- **Downloadable Excel report** — colour-coded BUY/HOLD/SELL, full reasoning, clickable SEC filing and news URLs
+- **DJIA market overview** — interactive price chart and market stats on startup
+- **Portfolio upload** — drop a CSV or Excel with a column of tickers or company names for bulk analysis
 
 ---
 
@@ -18,14 +21,18 @@ An AI-powered equity analysis chatbot built with Chainlit, LlamaIndex, and Amazo
 
 | Layer | Technology |
 |---|---|
-| UI | Chainlit |
+| UI | Chainlit ≥ 1.3.0 |
 | Agents | LlamaIndex ReActAgent + AgentWorkflow |
-| LLM | Anthropic Claude 3.5 Sonnet via Amazon Bedrock |
-| Embeddings | Amazon Titan Embed v2 via Bedrock |
-| News | Tavily Search API |
-| SEC Data | llama-index-readers-sec-filings |
+| LLM | Anthropic Claude (via `llama-index-llms-anthropic`) |
+| Embeddings | HuggingFace (`BAAI/bge-small-en-v1.5` via `llama-index-embeddings-huggingface`) |
+| News | Tavily Search API (`llama-index-tools-tavily-research`) |
+| SEC Data | `llama-index-readers-sec-filings` + SEC EDGAR API |
 | Market Data | yfinance |
-| Hosting | Railway |
+| Charts | Plotly |
+| Reports | pandas + openpyxl |
+| Hosting | Railway (Dockerfile deploy) |
+| CI/CD | GitHub Actions → Railway |
+| Code Quality | SonarQube |
 
 ---
 
@@ -33,26 +40,42 @@ An AI-powered equity analysis chatbot built with Chainlit, LlamaIndex, and Amazo
 
 ```
 portfolioai/
-├── app.py                          # Main application (agents + Chainlit UI)
+├── app.py                          # Main application — agents + Chainlit UI
 ├── requirements.txt                # Python dependencies
-├── Dockerfile                      # Container definition
+├── Dockerfile                      # Container definition (port 8080)
 ├── docker-compose.yml              # Local development only
 ├── railway.toml                    # Railway deployment config
 ├── .env.example                    # Environment variable template
 ├── .dockerignore                   # Files excluded from Docker image
 ├── .gitignore                      # Files excluded from git
+├── sonar-project.properties        # SonarQube analysis config
+├── setup_ec2.sh                    # Optional: EC2 self-hosted setup
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml              # GitHub Actions → Railway CI/CD
+│       └── deploy.yml              # GitHub Actions: SonarQube → Railway CI/CD
+├── .chainlit/
+│   └── config.toml                 # Chainlit UI configuration
 ├── outputs/                        # Generated Excel reports (gitignored)
-└── client_input/                   # Private client files (gitignored)
+└── client_input/                   # Private client portfolio files (gitignored)
 ```
 
 ---
 
 ## Deployment (Railway — Production)
 
-### First-Time Setup
+### Required GitHub Secrets
+
+Before deploying, add these secrets to your GitHub repository:
+**Settings → Secrets and variables → Actions → New repository secret**
+
+| Secret | Where to get it |
+|---|---|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) → API Keys |
+| `TAVILY_API_KEY` | [app.tavily.com](https://app.tavily.com) → API Keys |
+| `RAILWAY_TOKEN` | Railway dashboard → Project → Settings → Tokens |
+| `SONAR_TOKEN` | SonarQube → My Account → Security → Generate Token |
+
+### First-Time Railway Setup
 
 **1. Create a Railway account**
 Go to [railway.app](https://railway.app) and sign up with your GitHub account.
@@ -60,33 +83,23 @@ Go to [railway.app](https://railway.app) and sign up with your GitHub account.
 **2. Create a new project**
 - Click **New Project** → **Deploy from GitHub repo**
 - Select your `portfolioai` repository
-- Railway will auto-detect the Dockerfile and start building
+- Railway detects the Dockerfile automatically and starts building
 
-**3. Set environment variables**
-In Railway dashboard → your service → **Variables**, add:
+**3. Set environment variables in Railway**
+Railway dashboard → your service → **Variables** → add:
 
 | Variable | Value |
 |---|---|
-| `AWS_ACCESS_KEY_ID` | Your AWS access key |
-| `AWS_SECRET_ACCESS_KEY` | Your AWS secret key |
-| `AWS_DEFAULT_REGION` | `us-east-1` |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
 | `TAVILY_API_KEY` | Your Tavily API key |
 
-Railway automatically injects `PORT` — no need to set it manually.
+Railway injects `PORT` automatically — do **not** set it manually.
 
 **4. Get your public URL**
 Railway dashboard → your service → **Settings** → **Domains** → **Generate Domain**
 
-You'll get a URL like `https://portfolioai-production.up.railway.app`
-
-**5. Set up CI/CD (auto-deploy on push)**
-- In Railway dashboard → your service → **Settings** → **Tokens** → **Create Token**
-- Copy the token
-- In GitHub → your repo → **Settings** → **Secrets and variables** → **Actions** → **New secret**
-  - Name: `RAILWAY_TOKEN`
-  - Value: paste the Railway token
-
-From now on, every push to `main` automatically redeploys.
+**5. CI/CD is now active**
+Every push to `main` automatically runs SonarQube analysis and, if it passes, deploys to Railway. No manual steps needed.
 
 ---
 
@@ -99,23 +112,17 @@ cd portfolioai
 
 # 2. Create your .env file
 cp .env.example .env
-# Edit .env with your real credentials
+# Open .env and fill in your ANTHROPIC_API_KEY and TAVILY_API_KEY
 
-# 3. Run with Docker Compose
+# 3. Run with Docker Compose (recommended — mirrors production exactly)
 docker compose up --build
+# App available at http://localhost:8080
 
-# 4. Open the app
-open http://localhost:8000
+# 4. Or run directly with Python (faster for dev iteration)
+pip install -r requirements.txt
+chainlit run app.py --host 0.0.0.0 --port 8080
+# App available at http://localhost:8080
 ```
-
----
-
-## Adding Private Client Files
-
-Drop PDF, Excel, or CSV files into the `client_input/` directory before starting the app. The Analyst agent will index and search them when answering queries.
-
-- **Local:** files in `./client_input/` are mounted into the container
-- **Railway:** use Railway's volume mount or upload files to S3 and reference them via env var
 
 ---
 
@@ -123,22 +130,37 @@ Drop PDF, Excel, or CSV files into the `client_input/` directory before starting
 
 | Variable | Required | Description |
 |---|---|---|
-| `AWS_ACCESS_KEY_ID` | ✅ | AWS credentials for Bedrock |
-| `AWS_SECRET_ACCESS_KEY` | ✅ | AWS credentials for Bedrock |
-| `AWS_DEFAULT_REGION` | ✅ | AWS region (e.g. `us-east-1`) |
-| `TAVILY_API_KEY` | ✅ | Tavily Search API key for news |
-| `PORT` | Auto (Railway) | Injected automatically by Railway |
+| `ANTHROPIC_API_KEY` | ✅ | Anthropic API key for Claude LLM |
+| `TAVILY_API_KEY` | ✅ | Tavily Search API key for real-time news |
+| `PORT` | Auto | Injected by Railway automatically — do not set |
+
+**No AWS credentials are required.** The app uses Anthropic directly and HuggingFace embeddings (downloaded at runtime, no API key needed).
 
 ---
 
 ## How It Works
 
-1. User enters ticker(s), company name(s), or uploads a CSV/Excel file
-2. Each equity is resolved to a ticker symbol via yfinance search
-3. Three agents run in parallel per equity:
-   - **Quant Agent** — calculates Sharpe ratio, annual return, volatility
-   - **Analyst Agent** — fetches and analyses SEC 10-K filing risks
-   - **Pulse Agent** — searches real-time news and sentiment via Tavily
-4. Orchestrator agent calculates majority vote (2/3 = 66%, 3/3 = 100% confidence)
-5. Results shown as cards on screen as each equity completes
-6. Excel report generated with colour-coded recommendations and clickable source links
+1. User enters ticker(s), company names, or uploads a CSV/Excel portfolio file
+2. Each equity is resolved to a validated ticker symbol via yfinance search
+3. Three ReAct agents run in parallel per equity via LlamaIndex `AgentWorkflow`:
+   - **Quant Agent** — calculates Sharpe ratio, annualised return, and volatility from historical price data
+   - **Analyst Agent** — fetches the latest SEC 10-K filing via EDGAR and analyses risk factors, financials, and disclosures using RAG with HuggingFace embeddings
+   - **Pulse Agent** — searches real-time news and scores market sentiment via Tavily
+4. Orchestrator synthesises all three signals into a majority-vote recommendation (2/3 = 66% confidence, 3/3 = 100%)
+5. Results appear as cards on screen as each equity completes — no waiting for the full batch
+6. Excel report generated with colour-coded recommendations, full per-agent reasoning, and clickable source links
+
+---
+
+## Adding Private Client Files
+
+Drop PDF, Excel, or CSV files into the `client_input/` directory before starting the app. The Analyst agent indexes and searches them alongside SEC filings.
+
+- **Local:** `./client_input/` is volume-mounted into the container via `docker-compose.yml`
+- **Railway:** Use Railway's persistent volume feature (attach to `/app/client_input`) or upload files to S3 and reference them via a custom env var
+
+---
+
+## EC2 Self-Hosted Deployment (Optional)
+
+If you prefer to host on your own EC2 instance rather than Railway, run `setup_ec2.sh` on a fresh Amazon Linux 2023 instance. See the script for full instructions.
