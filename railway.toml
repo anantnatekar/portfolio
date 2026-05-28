@@ -3,9 +3,9 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Chainlit serves HTTP on / — use root path for healthcheck
-# Increase timeout: HuggingFace model download on cold start takes ~60s
-healthcheckPath = "/"
+# /health is served by FastAPI in main.py — reliable, no Chainlit dependency
+healthcheckPath = "/health"
+# 120s start-period: HuggingFace model download on cold start takes ~60-90s
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3

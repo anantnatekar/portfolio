@@ -9,243 +9,214 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <style>
-/* ── RESET & ROOT ────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:         #080c10;
-  --bg2:        #0d1117;
-  --bg3:        #131920;
-  --bg4:        #1a2230;
-  --border:     rgba(255,255,255,0.07);
-  --border2:    rgba(255,255,255,0.12);
-  --text:       #e8edf3;
-  --text2:      #8b9ab0;
-  --text3:      #5a6a7e;
-  --green:      #00d084;
-  --green-dim:  rgba(0,208,132,0.12);
-  --red:        #ff4d6a;
-  --red-dim:    rgba(255,77,106,0.12);
-  --amber:      #f59e0b;
-  --blue:       #3b82f6;
-  --blue-dim:   rgba(59,130,246,0.12);
-  --accent:     #00d084;
-  --font-serif: 'Instrument Serif', Georgia, serif;
-  --font-sans:  'DM Sans', system-ui, sans-serif;
-  --font-mono:  'DM Mono', 'Courier New', monospace;
+  --bg:#080c10;--bg2:#0d1117;--bg3:#131920;--bg4:#1a2230;--bg5:#0b1118;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#e8edf3;--text2:#8b9ab0;--text3:#5a6a7e;
+  --green:#00d084;--green-dim:rgba(0,208,132,0.12);--green-glow:rgba(0,208,132,0.06);
+  --red:#ff4d6a;--red-dim:rgba(255,77,106,0.12);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.10);
+  --blue:#3b82f6;--blue-dim:rgba(59,130,246,0.10);
+  --font-serif:'Instrument Serif',Georgia,serif;
+  --font-sans:'DM Sans',system-ui,sans-serif;
+  --font-mono:'DM Mono','Courier New',monospace;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13px;line-height:1.5;overflow:hidden}
 
-/* ── TOP BAR ─────────────────────────────────────────────────────────────── */
-.topbar{
-  height:48px;background:var(--bg2);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 20px;gap:16px;
-  position:fixed;top:0;left:0;right:0;z-index:100;
-}
+/* TOP BAR */
+.topbar{height:48px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:fixed;top:0;left:0;right:0;z-index:100}
 .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.brand-dot{
-  width:28px;height:28px;border-radius:7px;
-  background:linear-gradient(135deg,#00d084,#00a86b);
-  display:flex;align-items:center;justify-content:center;font-size:14px;
-}
-.brand-name{
-  font-family:var(--font-serif);font-size:17px;color:var(--text);
-  letter-spacing:-.01em;
-}
+.brand-dot{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#00d084,#00a86b);display:flex;align-items:center;justify-content:center;font-size:14px}
+.brand-name{font-family:var(--font-serif);font-size:17px;color:var(--text);letter-spacing:-.01em}
 .brand-name em{color:var(--green);font-style:italic}
 .bar-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
-.ticker-tape{
-  flex:1;overflow:hidden;display:flex;align-items:center;gap:0;
-  mask-image:linear-gradient(to right,transparent,black 5%,black 95%,transparent);
-}
-.tape-inner{
-  display:flex;gap:0;white-space:nowrap;
-  animation:tape 40s linear infinite;
-}
+.ticker-tape{flex:1;overflow:hidden;display:flex;align-items:center;mask-image:linear-gradient(to right,transparent,black 5%,black 95%,transparent)}
+.tape-inner{display:flex;white-space:nowrap;animation:tape 40s linear infinite}
 .tape-inner:hover{animation-play-state:paused}
 @keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.tape-item{
-  display:flex;align-items:center;gap:6px;padding:0 18px;
-  border-right:1px solid var(--border);cursor:pointer;
-  transition:background .15s;
-}
+.tape-item{display:flex;align-items:center;gap:6px;padding:0 18px;border-right:1px solid var(--border);cursor:pointer;transition:background .15s}
 .tape-item:hover{background:rgba(255,255,255,.04)}
-.ti-sym{font-family:var(--font-mono);font-size:11px;font-weight:500;color:var(--text)}
+.ti-sym{font-family:var(--font-mono);font-size:11px;font-weight:500}
 .ti-price{font-family:var(--font-mono);font-size:11px;color:var(--text2)}
 .ti-chg{font-family:var(--font-mono);font-size:11px}
 .up{color:var(--green)}.down{color:var(--red)}
-.bar-time{
-  font-family:var(--font-mono);font-size:11px;color:var(--text3);
-  flex-shrink:0;white-space:nowrap;
-}
-.live-dot{
-  width:6px;height:6px;border-radius:50%;background:var(--green);
-  animation:pulse 2s ease-in-out infinite;flex-shrink:0;
-}
+.bar-time{font-family:var(--font-mono);font-size:11px;color:var(--text3);flex-shrink:0;white-space:nowrap}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s ease-in-out infinite;flex-shrink:0}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
 
-/* ── LAYOUT ──────────────────────────────────────────────────────────────── */
-.shell{
-  display:grid;grid-template-columns:520px 1fr;
-  height:100vh;padding-top:48px;
-}
+/* LAYOUT */
+.shell{display:grid;grid-template-columns:520px 1fr;height:100vh;padding-top:48px}
 
-/* ── LEFT PANEL ──────────────────────────────────────────────────────────── */
-.left{
-  background:var(--bg2);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;
-}
-
-/* DJIA HERO */
-.djia-hero{
-  padding:20px 20px 16px;border-bottom:1px solid var(--border);
-  background:linear-gradient(160deg,rgba(0,208,132,.03) 0%,transparent 60%);
-  flex-shrink:0;
-}
-.djia-eyebrow{
-  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
-  color:var(--text3);text-transform:uppercase;margin-bottom:6px;
-}
-.djia-name{
-  font-family:var(--font-serif);font-size:13px;color:var(--text2);
-  margin-bottom:10px;font-style:italic;
-}
+/* LEFT */
+.left{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.djia-hero{padding:20px 20px 16px;border-bottom:1px solid var(--border);background:linear-gradient(160deg,rgba(0,208,132,.03) 0%,transparent 60%);flex-shrink:0}
+.djia-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.djia-name{font-family:var(--font-serif);font-size:13px;color:var(--text2);margin-bottom:10px;font-style:italic}
 .djia-price-row{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
-.djia-price{
-  font-family:var(--font-mono);font-size:36px;font-weight:500;
-  color:var(--text);letter-spacing:-.02em;line-height:1;
-}
+.djia-price{font-family:var(--font-mono);font-size:36px;font-weight:500;color:var(--text);letter-spacing:-.02em;line-height:1}
 .djia-change-block{display:flex;flex-direction:column;gap:2px}
 .djia-change{font-family:var(--font-mono);font-size:16px;font-weight:500}
 .djia-pct{font-family:var(--font-mono);font-size:13px}
-.djia-badge{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:3px 9px;border-radius:4px;font-size:11px;font-weight:500;
-  font-family:var(--font-mono);margin-bottom:12px;
-}
+.djia-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:4px;font-size:11px;font-weight:500;font-family:var(--font-mono);margin-bottom:12px}
 .badge-up{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,208,132,.2)}
 .badge-down{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,77,106,.2)}
-
 .djia-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.stat-box{
-  background:var(--bg3);border:1px solid var(--border);
-  border-radius:6px;padding:8px 10px;
-}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
 .stat-label{font-size:10px;color:var(--text3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em}
 .stat-val{font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--text)}
-
-/* SPARKLINE (canvas) */
-.spark-wrap{height:50px;margin-bottom:4px;position:relative}
+.spark-wrap{height:50px;margin-bottom:4px}
 #sparkCanvas{width:100%;height:100%;display:block}
 .spark-label-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);font-family:var(--font-mono)}
-
-/* CHART */
 .chart-section{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
-.chart-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 20px 8px;flex-shrink:0;
-}
+.chart-header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 8px;flex-shrink:0}
 .chart-title{font-size:12px;font-weight:600;color:var(--text)}
 .tf-row{display:flex;gap:4px}
-.tf-btn{
-  padding:3px 9px;border-radius:4px;font-size:11px;font-family:var(--font-mono);
-  border:1px solid var(--border);background:transparent;color:var(--text3);
-  cursor:pointer;transition:all .15s;
-}
+.tf-btn{padding:3px 9px;border-radius:4px;font-size:11px;font-family:var(--font-mono);border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;transition:all .15s}
 .tf-btn:hover,.tf-btn.active{background:var(--bg4);color:var(--text);border-color:var(--border2)}
 .chart-wrap{flex:1;padding:0 12px 12px;min-height:0}
 #djiaChart{width:100%;height:100%;border-radius:8px;overflow:hidden}
-
-/* MARKET MOVERS */
-.movers-section{
-  border-top:1px solid var(--border);flex-shrink:0;
-  max-height:220px;overflow-y:auto;
-}
-.movers-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 20px 6px;position:sticky;top:0;background:var(--bg2);z-index:2;
-}
+.movers-section{border-top:1px solid var(--border);flex-shrink:0;max-height:220px;overflow-y:auto}
+.movers-header{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 6px;position:sticky;top:0;background:var(--bg2);z-index:2}
 .movers-title{font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.06em}
 .movers-tabs{display:flex;gap:2px}
-.m-tab{
-  padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--font-mono);
-  border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s;
-}
+.m-tab{padding:2px 8px;border-radius:3px;font-size:10px;font-family:var(--font-mono);border:none;background:transparent;color:var(--text3);cursor:pointer;transition:all .15s}
 .m-tab.active{background:var(--bg4);color:var(--text)}
 .movers-list{padding:0 12px 8px}
-.mover-row{
-  display:flex;align-items:center;gap:0;padding:6px 8px;
-  border-radius:5px;cursor:pointer;transition:background .12s;
-}
+.mover-row{display:flex;align-items:center;padding:6px 8px;border-radius:5px;cursor:pointer;transition:background .12s}
 .mover-row:hover{background:var(--bg3)}
-.m-sym{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--text);width:60px;flex-shrink:0}
+.m-sym{font-family:var(--font-mono);font-size:12px;font-weight:500;width:60px;flex-shrink:0}
 .m-name{font-size:11px;color:var(--text3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.m-price{font-family:var(--font-mono);font-size:12px;color:var(--text);width:70px;text-align:right;flex-shrink:0}
+.m-price{font-family:var(--font-mono);font-size:12px;width:70px;text-align:right;flex-shrink:0}
 .m-chg{font-family:var(--font-mono);font-size:11px;width:60px;text-align:right;flex-shrink:0}
 .m-bar-wrap{width:50px;flex-shrink:0;margin-left:10px}
 .m-bar{height:3px;border-radius:2px;background:var(--border)}
 .m-bar-fill{height:100%;border-radius:2px}
-
-/* NEWS TICKER */
-.news-strip{
-  border-top:1px solid var(--border);
-  height:36px;display:flex;align-items:center;
-  background:var(--bg3);flex-shrink:0;overflow:hidden;
-  padding:0 12px;gap:10px;
-}
-.news-label{
-  font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;
-  letter-spacing:.08em;flex-shrink:0;font-family:var(--font-mono);
-}
-.news-scroll{flex:1;overflow:hidden;position:relative}
-.news-inner{
-  display:flex;gap:0;white-space:nowrap;
-  animation:newstape 60s linear infinite;
-}
+.news-strip{border-top:1px solid var(--border);height:36px;display:flex;align-items:center;background:var(--bg3);flex-shrink:0;overflow:hidden;padding:0 12px;gap:10px}
+.news-label{font-size:10px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.08em;flex-shrink:0;font-family:var(--font-mono)}
+.news-scroll{flex:1;overflow:hidden}
+.news-inner{display:flex;white-space:nowrap;animation:newstape 60s linear infinite}
 @keyframes newstape{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
-.news-item{
-  padding:0 20px;font-size:11px;color:var(--text2);border-right:1px solid var(--border);
-}
+.news-item{padding:0 20px;font-size:11px;color:var(--text2);border-right:1px solid var(--border)}
 .news-item span{color:var(--text3);margin-right:6px}
 
-/* ── RIGHT PANEL — PortfolioAI ───────────────────────────────────────────── */
-.right{
-  display:flex;flex-direction:column;overflow:hidden;
-  background:var(--bg);
-}
-.right-header{
-  height:44px;background:var(--bg2);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;
-}
-.rh-title{
-  font-family:var(--font-serif);font-size:15px;color:var(--text);
-  display:flex;align-items:center;gap:8px;
-}
+/* RIGHT PANEL — NATIVE CHAT */
+.right{display:flex;flex-direction:column;overflow:hidden;background:var(--bg5)}
+.right-header{height:44px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
+.rh-title{font-family:var(--font-serif);font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px}
 .rh-title strong{color:var(--green)}
 .rh-sep{flex:1}
-.rh-badge{
-  font-family:var(--font-mono);font-size:10px;
-  padding:2px 8px;border-radius:3px;
-  background:var(--green-dim);color:var(--green);
-  border:1px solid rgba(0,208,132,.2);
-  display:flex;align-items:center;gap:5px;
-}
 .rh-agents{display:flex;gap:6px}
-.agent-pill{
-  font-size:10px;padding:2px 8px;border-radius:3px;font-family:var(--font-mono);
-  border:1px solid var(--border);color:var(--text3);background:var(--bg3);
-}
-.portfolioai-frame{
-  flex:1;border:none;width:100%;display:block;
-  background:var(--bg);
-}
+.agent-pill{font-size:10px;padding:2px 8px;border-radius:3px;font-family:var(--font-mono);border:1px solid var(--border);color:var(--text3);background:var(--bg3);transition:all .25s}
+.agent-pill.active{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.rh-badge{font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:3px;display:flex;align-items:center;gap:5px;transition:all .3s}
 
-/* ── LOADING OVERLAY ─────────────────────────────────────────────────────── */
-.overlay{
-  position:fixed;inset:0;z-index:1000;
-  background:var(--bg);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:16px;
-  transition:opacity .6s;
-}
+/* Messages */
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth}
+
+/* Welcome */
+.welcome-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
+.wc-logo{font-family:var(--font-serif);font-size:28px;color:var(--text);margin-bottom:8px}
+.wc-logo em{color:var(--green);font-style:italic}
+.wc-sub{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:18px}
+.wc-examples{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+.wc-ex{background:var(--bg4);border:1px solid var(--border);border-radius:7px;padding:10px 12px;cursor:pointer;text-align:left;transition:all .15s;font-family:var(--font-sans);width:100%}
+.wc-ex:hover{border-color:var(--green);background:var(--green-glow)}
+.wc-ex-label{font-size:10px;color:var(--text3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.wc-ex-val{font-size:12px;color:var(--text);font-family:var(--font-mono)}
+.wc-agents{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.wc-agent{font-size:11px;padding:4px 10px;border-radius:4px;border:1px solid var(--border);color:var(--text2);background:var(--bg4)}
+
+/* Messages */
+.msg-system{font-size:11px;color:var(--text3);font-family:var(--font-mono);padding:5px 12px;background:var(--bg4);border-radius:6px;align-self:center;border:1px solid var(--border)}
+.msg-user{align-self:flex-end;max-width:72%}
+.msg-user-bubble{background:var(--green);color:#000;padding:10px 14px;border-radius:12px 12px 3px 12px;font-size:13px;font-weight:500;word-break:break-word}
+.msg-ai{align-self:flex-start;width:100%}
+.msg-ai-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.msg-ai-avatar{width:20px;height:20px;border-radius:5px;background:linear-gradient(135deg,#00d084,#00a86b);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.msg-ai-author{font-size:11px;font-weight:500;color:var(--green);font-family:var(--font-mono)}
+.msg-ai-time{font-size:10px;color:var(--text3);font-family:var(--font-mono)}
+.msg-ai-body{background:var(--bg3);border:1px solid var(--border);border-radius:3px 12px 12px 12px;padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.7}
+.msg-ai-body strong{color:var(--text);font-weight:500}
+.msg-ai-body code{background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:11px;color:var(--green)}
+
+/* Progress card */
+.msg-progress{align-self:flex-start;width:100%}
+.progress-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.progress-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.progress-ticker{font-family:var(--font-mono);font-size:14px;font-weight:500;color:var(--text)}
+.progress-company{font-size:11px;color:var(--text3);font-family:var(--font-mono);flex:1}
+.progress-status{font-size:10px;color:var(--amber);font-family:var(--font-mono)}
+.progress-steps{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.progress-step{display:flex;align-items:center;gap:10px;font-size:11px;font-family:var(--font-mono)}
+.step-icon{width:16px;text-align:center;flex-shrink:0}
+.step-label.done{color:var(--green)}.step-label.active{color:var(--amber)}.step-label.waiting{color:var(--text3)}.step-label.error{color:var(--red)}
+.step-spinner{width:12px;height:12px;border:1.5px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Result card */
+.result-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.rec-banner{padding:14px 16px;display:flex;align-items:center;gap:14px}
+.rec-banner.buy{background:rgba(0,208,132,0.08);border-bottom:1px solid rgba(0,208,132,0.14)}
+.rec-banner.hold{background:rgba(245,158,11,0.08);border-bottom:1px solid rgba(245,158,11,0.14)}
+.rec-banner.sell{background:rgba(255,77,106,0.08);border-bottom:1px solid rgba(255,77,106,0.14)}
+.rec-badge{font-family:var(--font-mono);font-size:20px;font-weight:500;padding:6px 14px;border-radius:6px;letter-spacing:.05em}
+.rec-badge.buy{background:rgba(0,208,132,0.18);color:#00d084;border:1px solid rgba(0,208,132,0.3)}
+.rec-badge.hold{background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)}
+.rec-badge.sell{background:rgba(255,77,106,0.18);color:#ff4d6a;border:1px solid rgba(255,77,106,0.3)}
+.rec-info{flex:1;min-width:0}
+.rec-company{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-ticker{font-family:var(--font-mono);font-size:11px;color:var(--text3)}
+.rec-confidence{font-family:var(--font-mono);font-size:11px;color:var(--text2);flex-shrink:0}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border)}
+.metric-box{padding:10px 12px;border-right:1px solid var(--border)}
+.metric-box:last-child{border-right:none}
+.metric-label{font-size:10px;color:var(--text3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.metric-val{font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--text)}
+.metric-val.pos{color:var(--green)}.metric-val.neg{color:var(--red)}
+.signals-row{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border)}
+.signal-box{padding:10px 12px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.signal-box:last-child{border-right:none}
+.signal-icon{font-size:14px;flex-shrink:0}
+.signal-name{font-size:10px;color:var(--text3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.signal-val{font-size:11px;font-weight:500;font-family:var(--font-mono)}
+.signal-val.positive{color:var(--green)}.signal-val.negative{color:var(--red)}.signal-val.neutral{color:var(--amber)}
+.reasoning-section{padding:12px 14px;border-bottom:1px solid var(--border)}
+.reasoning-label{font-size:10px;color:var(--text3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.reasoning-text{font-size:12px;color:var(--text2);line-height:1.65}
+.details-toggle{padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);font-family:var(--font-mono);border:none;border-bottom:1px solid var(--border);background:transparent;width:100%;text-align:left;transition:color .15s}
+.details-toggle:hover{color:var(--text)}.details-toggle .chv{transition:transform .2s;display:inline-block}
+.details-toggle.open .chv{transform:rotate(180deg)}
+.details-body{display:none;padding:10px 14px 14px}
+.details-body.open{display:block}
+.detail-agent{margin-bottom:10px}
+.detail-agent-name{font-size:10px;color:var(--text3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.detail-agent-text{font-size:12px;color:var(--text2);line-height:1.6}
+.links-row{padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap}
+.result-link{font-size:11px;font-family:var(--font-mono);color:var(--blue);text-decoration:none;padding:2px 8px;border:1px solid rgba(59,130,246,0.25);border-radius:4px;background:rgba(59,130,246,0.06);transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;display:inline-block}
+.result-link:hover{border-color:var(--blue);background:rgba(59,130,246,0.12)}
+
+/* Input area */
+.chat-input-area{padding:12px 16px;background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.input-wrap{flex:1;background:var(--bg4);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;padding:8px 12px;gap:8px;transition:border-color .15s}
+.input-wrap:focus-within{border-color:var(--border2)}
+.chat-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:13px;font-family:var(--font-sans);resize:none;max-height:80px;min-height:20px;line-height:1.5}
+.chat-input::placeholder{color:var(--text3)}
+.upload-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;font-size:16px;transition:color .15s;line-height:1}
+.upload-btn:hover{color:var(--text)}
+.send-btn{width:36px;height:36px;border-radius:8px;border:none;background:var(--green);color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s;flex-shrink:0}
+.send-btn:hover{background:#00f09b;transform:scale(1.04)}
+.send-btn:disabled{background:var(--bg4);color:var(--text3);cursor:not-allowed;transform:none}
+.input-hints{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap}
+.hint-chip{font-size:10px;font-family:var(--font-mono);color:var(--text3);padding:2px 8px;border:1px solid var(--border);border-radius:3px;cursor:pointer;transition:all .15s;background:none}
+.hint-chip:hover{color:var(--green);border-color:rgba(0,208,132,.3);background:var(--green-glow)}
+.bridge-notice{font-size:10px;color:var(--text3);font-family:var(--font-mono);text-align:center;margin-top:5px}
+.bridge-notice a{color:var(--blue);text-decoration:none;cursor:pointer}
+#fileInput{display:none}
+
+/* Overlay */
+.overlay{position:fixed;inset:0;z-index:1000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .6s}
 .overlay.hidden{opacity:0;pointer-events:none}
 .ol-logo{font-family:var(--font-serif);font-size:32px;color:var(--text)}
 .ol-logo em{color:var(--green);font-style:italic}
@@ -254,23 +225,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .ol-progress{height:100%;background:var(--green);border-radius:1px;animation:load 1.5s ease-out forwards}
 @keyframes load{from{width:0}to{width:100%}}
 
-/* ── SCROLLBARS ──────────────────────────────────────────────────────────── */
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
-
-/* ── COMMENTARY MODAL ────────────────────────────────────────────────────── */
-.modal-bg{
-  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
-  display:flex;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity .2s;
-}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal-bg.open{opacity:1;pointer-events:all}
-.modal{
-  background:var(--bg2);border:1px solid var(--border2);border-radius:12px;
-  width:480px;max-width:90vw;padding:24px;
-  transform:translateY(10px);transition:transform .2s;
-}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:480px;max-width:90vw;padding:24px;transform:translateY(10px);transition:transform .2s}
 .modal-bg.open .modal{transform:translateY(0)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .modal-title{font-family:var(--font-serif);font-size:18px;color:var(--text)}
@@ -280,23 +238,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .modal-body p{margin-bottom:10px}
 .modal-body strong{color:var(--text)}
 
-/* ── RESPONSIVE ──────────────────────────────────────────────────────────── */
-@media(max-width:900px){
-  .shell{grid-template-columns:1fr}
-  .right{display:none}
-}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+@media(max-width:900px){.shell{grid-template-columns:1fr}.right{display:none}}
 </style>
 </head>
 <body>
 
-<!-- LOADING OVERLAY -->
 <div class="overlay" id="overlay">
   <div class="ol-logo">Portfolio<em>AI</em></div>
   <div class="ol-sub">Loading market intelligence…</div>
   <div class="ol-bar"><div class="ol-progress"></div></div>
 </div>
 
-<!-- TOP BAR -->
 <header class="topbar">
   <div class="brand">
     <div class="brand-dot">📈</div>
@@ -304,26 +257,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
   <div class="bar-sep"></div>
   <div class="live-dot"></div>
-  <div class="ticker-tape" id="tickerTape">
-    <div class="tape-inner" id="tapeInner">
-      <!-- populated by JS -->
-    </div>
-  </div>
+  <div class="ticker-tape"><div class="tape-inner" id="tapeInner"></div></div>
   <div class="bar-sep"></div>
   <div class="bar-time" id="barTime">—</div>
 </header>
 
-<!-- MAIN SHELL -->
 <div class="shell">
 
-  <!-- ── LEFT: MARKET DASHBOARD ─────────────────────────────────────── -->
+  <!-- LEFT: MARKET DASHBOARD -->
   <aside class="left">
-
-    <!-- DJIA HERO -->
     <div class="djia-hero">
       <div class="djia-eyebrow">DOW JONES INDUSTRIAL AVERAGE · ^DJI</div>
       <div class="djia-name">Dow Jones Industrial Average</div>
-
       <div class="djia-price-row">
         <div class="djia-price" id="djiaPrice">—</div>
         <div class="djia-change-block">
@@ -331,75 +276,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="djia-pct up" id="djiaPct">—</div>
         </div>
       </div>
-
-      <div class="djia-badge badge-up" id="djiaBadge">
-        <span id="badgeArrow">▲</span>
-        <span id="badgeText">Market loading…</span>
-      </div>
-
+      <div class="djia-badge badge-up" id="djiaBadge"><span id="badgeArrow">▲</span><span id="badgeText">Market loading…</span></div>
       <div class="djia-stats">
-        <div class="stat-box">
-          <div class="stat-label">Open</div>
-          <div class="stat-val" id="statOpen">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Day High</div>
-          <div class="stat-val" id="statHigh">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Day Low</div>
-          <div class="stat-val" id="statLow">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">Volume</div>
-          <div class="stat-val" id="statVol">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">52W High</div>
-          <div class="stat-val" id="stat52H">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">52W Low</div>
-          <div class="stat-val" id="stat52L">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">1Y Return</div>
-          <div class="stat-val" id="stat1Y">—</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-label">P/E Ratio</div>
-          <div class="stat-val" id="statPE">~21x</div>
-        </div>
+        <div class="stat-box"><div class="stat-label">Open</div><div class="stat-val" id="statOpen">—</div></div>
+        <div class="stat-box"><div class="stat-label">Day High</div><div class="stat-val" id="statHigh">—</div></div>
+        <div class="stat-box"><div class="stat-label">Day Low</div><div class="stat-val" id="statLow">—</div></div>
+        <div class="stat-box"><div class="stat-label">Volume</div><div class="stat-val" id="statVol">—</div></div>
+        <div class="stat-box"><div class="stat-label">52W High</div><div class="stat-val" id="stat52H">—</div></div>
+        <div class="stat-box"><div class="stat-label">52W Low</div><div class="stat-val" id="stat52L">—</div></div>
+        <div class="stat-box"><div class="stat-label">1Y Return</div><div class="stat-val" id="stat1Y">—</div></div>
+        <div class="stat-box"><div class="stat-label">P/E Ratio</div><div class="stat-val" id="statPE">~21x</div></div>
       </div>
-
-      <!-- Sparkline -->
       <div class="spark-wrap"><canvas id="sparkCanvas"></canvas></div>
-      <div class="spark-label-row">
-        <span id="sparkStart">1Y ago</span>
-        <span style="color:var(--text2);font-size:10px">52-week price range</span>
-        <span>Today</span>
-      </div>
+      <div class="spark-label-row"><span>1Y ago</span><span style="color:var(--text2);font-size:10px">52-week range</span><span>Today</span></div>
     </div>
-
-    <!-- INTERACTIVE CHART -->
     <div class="chart-section">
       <div class="chart-header">
         <div class="chart-title">DJIA Price Chart</div>
         <div class="tf-row">
-          <button class="tf-btn" data-tf="1mo">1M</button>
-          <button class="tf-btn" data-tf="3mo">3M</button>
-          <button class="tf-btn active" data-tf="1y">1Y</button>
-          <button class="tf-btn" data-tf="2y">2Y</button>
-          <button class="tf-btn" data-tf="5y">5Y</button>
-          <button class="tf-btn" data-tf="10y">10Y</button>
+          <button class="tf-btn" data-tf="1mo">1M</button><button class="tf-btn" data-tf="3mo">3M</button>
+          <button class="tf-btn active" data-tf="1y">1Y</button><button class="tf-btn" data-tf="2y">2Y</button>
+          <button class="tf-btn" data-tf="5y">5Y</button><button class="tf-btn" data-tf="10y">10Y</button>
         </div>
       </div>
-      <div class="chart-wrap">
-        <div id="djiaChart"></div>
-      </div>
+      <div class="chart-wrap"><div id="djiaChart"></div></div>
     </div>
-
-    <!-- MARKET MOVERS -->
     <div class="movers-section">
       <div class="movers-header">
         <div class="movers-title">DJIA Components</div>
@@ -409,68 +310,68 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <button class="m-tab" id="tabAll" onclick="showMovers('all')">All 30</button>
         </div>
       </div>
-      <div class="movers-list" id="moversList">
-        <div style="padding:12px 8px;color:var(--text3);font-size:11px">Loading components…</div>
-      </div>
+      <div class="movers-list" id="moversList"><div style="padding:12px 8px;color:var(--text3);font-size:11px">Loading components…</div></div>
     </div>
-
-    <!-- NEWS STRIP -->
     <div class="news-strip">
       <div class="news-label">News</div>
-      <div class="news-scroll">
-        <div class="news-inner" id="newsInner">
-          <div class="news-item"><span>DJIA</span>Markets await Fed minutes for rate path signals</div>
-          <div class="news-item"><span>NVDA</span>AI chip demand surges — analysts raise price targets</div>
-          <div class="news-item"><span>AAPL</span>iPhone cycle boosting services revenue outlook</div>
-          <div class="news-item"><span>JPM</span>Q2 earnings beat on trading revenue strength</div>
-          <div class="news-item"><span>MSFT</span>Azure AI growth accelerating into fiscal year-end</div>
-          <div class="news-item"><span>GS</span>Investment banking fees rebounding from 2-year low</div>
-          <div class="news-item"><span>UNH</span>Healthcare costs normalise — margins recovering</div>
-          <div class="news-item"><span>DJIA</span>Markets await Fed minutes for rate path signals</div>
-          <div class="news-item"><span>NVDA</span>AI chip demand surges — analysts raise price targets</div>
-          <div class="news-item"><span>AAPL</span>iPhone cycle boosting services revenue outlook</div>
-        </div>
-      </div>
+      <div class="news-scroll"><div class="news-inner" id="newsInner">
+        <div class="news-item"><span>DJIA</span>Markets await Fed minutes for rate path signals</div>
+        <div class="news-item"><span>NVDA</span>AI chip demand surges — analysts raise price targets</div>
+        <div class="news-item"><span>AAPL</span>iPhone cycle boosting services revenue outlook</div>
+        <div class="news-item"><span>JPM</span>Q2 earnings beat on trading revenue strength</div>
+        <div class="news-item"><span>MSFT</span>Azure AI growth accelerating into fiscal year-end</div>
+        <div class="news-item"><span>GS</span>Investment banking fees rebounding from 2-year low</div>
+        <div class="news-item"><span>UNH</span>Healthcare costs normalise — margins recovering</div>
+        <div class="news-item"><span>DJIA</span>Markets await Fed minutes for rate path signals</div>
+        <div class="news-item"><span>NVDA</span>AI chip demand surges — analysts raise price targets</div>
+        <div class="news-item"><span>AAPL</span>iPhone cycle boosting services revenue outlook</div>
+      </div></div>
     </div>
+  </aside>
 
-  </aside><!-- /left -->
-
-  <!-- ── RIGHT: PORTFOLIOAI ─────────────────────────────────────────── -->
+  <!-- RIGHT: NATIVE PORTFOLIOAI CHAT -->
   <main class="right">
     <div class="right-header">
-      <div class="rh-title">
-        <span>Portfolio<strong>AI</strong></span>
-        <span style="font-size:12px;color:var(--text3);font-family:var(--font-sans)">— Equity Research Agent</span>
-      </div>
+      <div class="rh-title"><span>Portfolio<strong>AI</strong></span><span style="font-size:12px;color:var(--text3);font-family:var(--font-sans)">— Equity Research Agent</span></div>
       <div class="rh-sep"></div>
       <div class="rh-agents">
-        <div class="agent-pill">📈 Quant</div>
-        <div class="agent-pill">🏛 Fundamental</div>
-        <div class="agent-pill">📰 Sentiment</div>
+        <div class="agent-pill" id="pillQuant">📈 Quant</div>
+        <div class="agent-pill" id="pillFund">🏛 Fundamental</div>
+        <div class="agent-pill" id="pillNews">📰 Sentiment</div>
       </div>
       <div style="width:8px"></div>
-      <div class="rh-badge">
-        <span style="width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block"></span>
-        Live
+      <div class="rh-badge" id="bridgeBadge" style="background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,0.2)">
+        <span style="width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block"></span>
+        <span id="bridgeStatus">Connecting…</span>
       </div>
     </div>
-    <iframe
-      class="portfolioai-frame"
-      id="portfolioFrame"
-      src="https://portfolio-production-a9a0.up.railway.app/"
-      title="PortfolioAI — Equity Research Agent"
-      allow="microphone *; clipboard-write *"
-      loading="eager"
-    ></iframe>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-area">
+      <div class="input-row">
+        <div class="input-wrap">
+          <textarea class="chat-input" id="chatInput" placeholder="Enter tickers or company names — e.g. AAPL, Microsoft, NVDA…" rows="1" autocomplete="off"></textarea>
+          <button class="upload-btn" title="Upload CSV / Excel portfolio" onclick="document.getElementById('fileInput').click()">📎</button>
+        </div>
+        <button class="send-btn" id="sendBtn">▶</button>
+      </div>
+      <div class="input-hints">
+        <span class="hint-chip" onclick="quickSend('AAPL')">AAPL</span>
+        <span class="hint-chip" onclick="quickSend('MSFT, NVDA, GOOGL')">MSFT, NVDA, GOOGL</span>
+        <span class="hint-chip" onclick="quickSend('Apple, Tesla, Amazon')">Company names</span>
+        <span class="hint-chip" onclick="quickSend('JPM, GS, BAC, WFC')">Bank sector</span>
+      </div>
+      <div class="bridge-notice" id="bridgeNotice"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)"/>
   </main>
 
-</div><!-- /shell -->
+</div>
 
-<!-- MARKET COMMENTARY MODAL -->
-<div class="modal-bg" id="modalBg" onclick="closeModal(event)">
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <div class="modal-head">
-      <div class="modal-title" id="modalTitle">Market Commentary</div>
+      <div class="modal-title" id="modalTitle">Commentary</div>
       <button class="modal-close" onclick="document.getElementById('modalBg').classList.remove('open')">×</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
@@ -478,500 +379,430 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <script>
-// ── CONFIG ───────────────────────────────────────────────────────────────────
-const PORTFOLIOAI_URL = "https://portfolio-production-a9a0.up.railway.app/";
+'use strict';
+const BRIDGE='';  // same-origin — all /api/* routes served by main.py
+const DOW30=["AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW","GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM","MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"];
+const TAPE_TICKERS=["^DJI","^GSPC","^IXIC","^RUT","GLD","USO","^TNX","AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","JPM","V","UNH"];
+let djiaData={},chartInstance=null,moverData=[],currentMovers='gainers',bridgeOnline=false,isAnalysing=false;
+const $=id=>document.getElementById(id);
+const fmt=(n,d=2)=>Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const nowStr=()=>new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
 
-// DJIA component tickers (Dow 30)
-const DOW30 = [
-  "AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
-  "GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
-  "MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT"
-];
-
-// Tape tickers
-const TAPE_TICKERS = [
-  "^DJI","^GSPC","^IXIC","^RUT","GLD","USO","^TNX",
-  "AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","JPM","V","UNH"
-];
-
-// ── STATE ────────────────────────────────────────────────────────────────────
-let djiaData        = {};
-let chartSeries     = null;
-let chartInstance   = null;
-let moverData       = [];
-let currentMovers   = 'gainers';
-let currentTF       = '1y';
-
-// ── UTILITIES ────────────────────────────────────────────────────────────────
-const fmt  = (n, d=2) => Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
-const fmtM = n => {
-  if(!n||isNaN(n)) return '—';
-  if(n>=1e12) return '$'+(n/1e12).toFixed(2)+'T';
-  if(n>=1e9)  return '$'+(n/1e9).toFixed(2)+'B';
-  if(n>=1e6)  return '$'+(n/1e6).toFixed(2)+'M';
-  return '$'+n.toLocaleString();
-};
-
-const $ = id => document.getElementById(id);
-
-// ── CLOCK ────────────────────────────────────────────────────────────────────
-function updateClock(){
-  const now = new Date();
-  const et  = new Date(now.toLocaleString('en-US',{timeZone:'America/New_York'}));
-  const hh  = String(et.getHours()).padStart(2,'0');
-  const mm  = String(et.getMinutes()).padStart(2,'0');
-  const ss  = String(et.getSeconds()).padStart(2,'0');
-  const day = et.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-  // Is market open? NYSE: 9:30–16:00 ET, Mon–Fri
-  const h=et.getHours(), m=et.getMinutes(), dow=et.getDay();
-  const open = dow>=1&&dow<=5 && (h>9||(h===9&&m>=30)) && h<16;
-  $('barTime').textContent = `${day}  ${hh}:${mm}:${ss} ET  ${open?'🟢 OPEN':'🔴 CLOSED'}`;
-}
-setInterval(updateClock, 1000);
-updateClock();
-
-// ── YAHOO FINANCE FETCH ───────────────────────────────────────────────────────
-async function yFetch(ticker, range='1y', interval='1d'){
-  const proxy = 'https://query1.finance.yahoo.com/v8/finance/chart/';
-  const url = `${proxy}${encodeURIComponent(ticker)}?range=${range}&interval=${interval}&includePrePost=false&events=div,split`;
+/* ── BRIDGE ── */
+async function checkBridge(){
   try{
-    const r = await fetch(url, {headers:{'Accept':'application/json'}});
-    if(!r.ok) throw new Error(r.status);
-    return await r.json();
-  }catch(e){
-    // Try v7 as fallback
-    try{
-      const r2 = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`);
-      if(!r2.ok) throw new Error(r2.status);
-      return await r2.json();
-    }catch(e2){
-      console.warn('YF fetch failed for', ticker, e2);
-      return null;
-    }
+    const r=await fetch(`/health`,{signal:AbortSignal.timeout(2500)});
+    setBridge(r.ok); return r.ok;
+  }catch{setBridge(false);return false;}
+}
+function setBridge(on){
+  bridgeOnline=on;
+  const b=$('bridgeBadge'),s=$('bridgeStatus'),n=$('bridgeNotice');
+  if(on){
+    b.style.cssText='background:var(--green-dim);color:var(--green);border:1px solid rgba(0,208,132,0.2);font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:3px;display:flex;align-items:center;gap:5px';
+    s.textContent='Bridge live';n.textContent='';
+  }else{
+    b.style.cssText='background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,0.2);font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:3px;display:flex;align-items:center;gap:5px';
+    s.textContent='Demo mode';
+    n.innerHTML='⚡ AI agents initialising… refresh in a moment.';
   }
 }
 
-// ── DJIA HERO ────────────────────────────────────────────────────────────────
+/* ── WELCOME ── */
+function renderWelcome(){
+  $('chatMessages').innerHTML=`
+  <div class="welcome-card">
+    <div class="wc-logo">Portfolio<em>AI</em></div>
+    <div class="wc-sub">Three AI agents — <strong>Quantitative</strong>, <strong>Fundamental (SEC)</strong>, and <strong>News Sentiment</strong> — deliver a <strong>BUY / HOLD / SELL</strong> recommendation with full reasoning.<br/>Click any ticker in the left panel or type below to start.</div>
+    <div class="wc-examples">
+      <button class="wc-ex" onclick="quickSend('AAPL')"><div class="wc-ex-label">Single stock</div><div class="wc-ex-val">AAPL</div></button>
+      <button class="wc-ex" onclick="quickSend('MSFT, NVDA, GOOGL')"><div class="wc-ex-label">Portfolio</div><div class="wc-ex-val">MSFT, NVDA, GOOGL</div></button>
+      <button class="wc-ex" onclick="quickSend('Apple, Tesla, Amazon')"><div class="wc-ex-label">Company names</div><div class="wc-ex-val">Apple, Tesla, Amazon</div></button>
+      <button class="wc-ex" onclick="quickSend('JPM, GS, BAC, WFC')"><div class="wc-ex-label">Sector sweep</div><div class="wc-ex-val">JPM, GS, BAC, WFC</div></button>
+    </div>
+    <div class="wc-agents">
+      <div class="wc-agent">📈 Sharpe · Return · Vol</div>
+      <div class="wc-agent">🏛 SEC EDGAR 10-K</div>
+      <div class="wc-agent">📰 Live Sentiment</div>
+    </div>
+  </div>`;
+}
+
+/* ── MSG HELPERS ── */
+function addSys(t){const e=document.createElement('div');e.className='msg-system';e.textContent=t;$('chatMessages').appendChild(e);scroll();}
+function addUser(t){const wc=$('chatMessages').querySelector('.welcome-card');if(wc)wc.remove();const e=document.createElement('div');e.className='msg-user';e.innerHTML=`<div class="msg-user-bubble">${t}</div>`;$('chatMessages').appendChild(e);scroll();}
+function addAI(html,author='PortfolioAI'){const e=document.createElement('div');e.className='msg-ai';e.innerHTML=`<div class="msg-ai-header"><div class="msg-ai-avatar">🤖</div><div class="msg-ai-author">${author}</div><div class="msg-ai-time">${nowStr()}</div></div><div class="msg-ai-body">${html}</div>`;$('chatMessages').appendChild(e);scroll();return e;}
+function scroll(){const c=$('chatMessages');c.scrollTop=c.scrollHeight;}
+
+function addProgress(ticker,company){
+  const e=document.createElement('div');e.className='msg-progress';e.id=`prg_${ticker}`;
+  e.innerHTML=`<div class="progress-card">
+    <div class="progress-header"><div class="progress-ticker">${ticker}</div><div class="progress-company">${company}</div><div class="progress-status" id="ps_${ticker}">Running…</div></div>
+    <div class="progress-steps">
+      <div class="progress-step" id="st_q_${ticker}"><span class="step-icon"><div class="step-spinner"></div></span><span class="step-label active">Quant agent — Sharpe, return, volatility…</span></div>
+      <div class="progress-step" id="st_f_${ticker}"><span class="step-icon">⏸</span><span class="step-label waiting">Fundamental agent — SEC EDGAR 10-K…</span></div>
+      <div class="progress-step" id="st_n_${ticker}"><span class="step-icon">⏸</span><span class="step-label waiting">News Sentiment agent — scanning headlines…</span></div>
+      <div class="progress-step" id="st_c_${ticker}"><span class="step-icon">⏸</span><span class="step-label waiting">Orchestrator — synthesising consensus…</span></div>
+    </div>
+  </div>`;
+  $('chatMessages').appendChild(e);scroll();return e;
+}
+
+function stepDone(ticker,step){
+  const e=$(`st_${step}_${ticker}`);if(!e)return;
+  e.querySelector('.step-icon').innerHTML='✅';
+  e.querySelector('.step-label').className='step-label done';
+  scroll();
+}
+function stepActive(ticker,step){
+  const e=$(`st_${step}_${ticker}`);if(!e)return;
+  e.querySelector('.step-icon').innerHTML='<div class="step-spinner"></div>';
+  e.querySelector('.step-label').className='step-label active';
+  scroll();
+}
+function activatePill(name){
+  ['pillQuant','pillFund','pillNews'].forEach(id=>$(id)?.classList.remove('active'));
+  if(name==='q')$('pillQuant')?.classList.add('active');
+  if(name==='f')$('pillFund')?.classList.add('active');
+  if(name==='n')$('pillNews')?.classList.add('active');
+}
+
+/* ── RESULT CARD ── */
+function sigClass(s){if(!s)return'';const l=s.toLowerCase();if(l.includes('pos')||l==='buy')return'positive';if(l.includes('neg')||l==='sell')return'negative';return'neutral';}
+function renderResult(r){
+  const rec=(r.recommendation||'HOLD').toUpperCase();
+  const cls=rec==='BUY'?'buy':rec==='SELL'?'sell':'hold';
+  const retVal=r.ann_return||'';
+  const retPos=retVal&&!retVal.includes('-');
+  const secLink=r.sec_url?`<a class="result-link" href="${r.sec_url}" target="_blank">🏛 SEC filing</a>`:'';
+  const newsLinks=(r.news_urls||[]).slice(0,3).map((u,i)=>`<a class="result-link" href="${u}" target="_blank">📰 News ${i+1}</a>`).join('');
+  const did='d'+Date.now()+Math.random().toString(36).slice(2);
+  return`<div class="result-card">
+    <div class="rec-banner ${cls}">
+      <div class="rec-badge ${cls}">${rec}</div>
+      <div class="rec-info"><div class="rec-company">${r.company_name||r.ticker}</div><div class="rec-ticker">${r.ticker} · ${r.analysis_date||'Today'}</div></div>
+      <div class="rec-confidence">${r.confidence||'66%'} confidence</div>
+    </div>
+    <div class="metrics-row">
+      <div class="metric-box"><div class="metric-label">Price</div><div class="metric-val">$${r.current_price||'—'}</div></div>
+      <div class="metric-box"><div class="metric-label">Ann. Return</div><div class="metric-val ${retPos?'pos':'neg'}">${r.ann_return||'—'}</div></div>
+      <div class="metric-box"><div class="metric-label">Sharpe</div><div class="metric-val">${r.sharpe_ratio||'—'}</div></div>
+      <div class="metric-box"><div class="metric-label">Mkt Cap</div><div class="metric-val">${r.market_cap||'—'}</div></div>
+    </div>
+    <div class="signals-row">
+      <div class="signal-box"><div class="signal-icon">📈</div><div><div class="signal-name">Quant</div><div class="signal-val ${sigClass(r.quant_signal)}">${r.quant_signal||'—'}</div></div></div>
+      <div class="signal-box"><div class="signal-icon">🏛</div><div><div class="signal-name">Fundamental</div><div class="signal-val ${sigClass(r.fundamental_signal)}">${r.fundamental_signal||'—'}</div></div></div>
+      <div class="signal-box"><div class="signal-icon">📰</div><div><div class="signal-name">Sentiment</div><div class="signal-val ${sigClass(r.news_signal)}">${r.news_signal||'—'}</div></div></div>
+    </div>
+    <div class="reasoning-section"><div class="reasoning-label">Synthesis</div><div class="reasoning-text">${r.overall_reasoning||'—'}</div></div>
+    <button class="details-toggle" onclick="toggleDet('${did}')"><span class="chv">▾</span>&nbsp;Agent details</button>
+    <div class="details-body" id="db_${did}">
+      <div class="detail-agent"><div class="detail-agent-name">📈 Quant</div><div class="detail-agent-text">${r.quant_reasoning||'—'}</div></div>
+      <div class="detail-agent"><div class="detail-agent-name">🏛 Fundamental</div><div class="detail-agent-text">${r.fundamental_reasoning||'—'}</div></div>
+      <div class="detail-agent"><div class="detail-agent-name">📰 News</div><div class="detail-agent-text">${r.news_reasoning||'—'}</div></div>
+    </div>
+    ${(secLink||newsLinks)?`<div class="links-row">${secLink}${newsLinks}</div>`:''}
+  </div>`;
+}
+function toggleDet(id){const b=document.querySelector(`[onclick="toggleDet('${id}')"]`),db=$(`db_${id}`);if(!b||!db)return;b.classList.toggle('open');db.classList.toggle('open');}
+
+/* ── DEMO ANALYSIS ── */
+async function runDemo(tickers){
+  for(const{ticker,company}of tickers){
+    const prg=addProgress(ticker,company);
+    activatePill('q');
+    const ydata=await yFetch(ticker,'1y','1d');
+    let q={};
+    if(ydata?.chart?.result?.[0]){
+      const meta=ydata.chart.result[0].meta;
+      const closes=ydata.chart.result[0].indicators.quote[0].close.filter(Boolean);
+      if(closes.length>1){
+        const ret=((closes[closes.length-1]/closes[0])-1)*100;
+        const daily=closes.slice(1).map((c,i)=>(c-closes[i])/closes[i]);
+        const mean=daily.reduce((a,b)=>a+b,0)/daily.length;
+        const vol=Math.sqrt(daily.reduce((a,b)=>a+(b-mean)**2,0)/daily.length)*Math.sqrt(252)*100;
+        const sharpe=vol>0?((ret-4)/vol).toFixed(2):'N/A';
+        const cap=meta.marketCap;
+        q={current_price:(meta.regularMarketPrice||closes.at(-1)).toFixed(2),
+          ann_return:(ret>=0?'+':'')+ret.toFixed(2)+'%',ann_volatility:vol.toFixed(2)+'%',
+          sharpe_ratio:sharpe,signal:ret>0&&Number(sharpe)>0.5?'positive':'negative',
+          market_cap:cap?(cap>=1e12?'$'+(cap/1e12).toFixed(2)+'T':'$'+(cap/1e9).toFixed(2)+'B'):'N/A',
+          '52w_high':meta.fiftyTwoWeekHigh?.toFixed(2)||'N/A','52w_low':meta.fiftyTwoWeekLow?.toFixed(2)||'N/A'};
+      }
+    }
+    stepDone(ticker,'q');await sleep(350);
+    activatePill('f');stepActive(ticker,'f');await sleep(1000+Math.random()*600);
+    stepDone(ticker,'f');await sleep(200);
+    activatePill('n');stepActive(ticker,'n');await sleep(800+Math.random()*500);
+    stepDone(ticker,'n');await sleep(200);
+    activatePill(null);stepActive(ticker,'c');await sleep(400);
+    stepDone(ticker,'c');$(`ps_${ticker}`).textContent='Complete';
+    const rec=q.signal==='positive'?'BUY':q.signal==='negative'?'SELL':'HOLD';
+    const result={ticker,company_name:company,recommendation:rec,confidence:'66%',
+      quant_signal:q.signal||'N/A',fundamental_signal:'positive',news_signal:'neutral',
+      current_price:q.current_price,ann_return:q.ann_return,ann_volatility:q.ann_volatility,
+      sharpe_ratio:q.sharpe_ratio,market_cap:q.market_cap,'52w_high':q['52w_high'],'52w_low':q['52w_low'],
+      overall_reasoning:`Demo: ${rec} based on quant signals. Sharpe ${q.sharpe_ratio}, return ${q.ann_return}. Connect bridge for SEC + news analysis.`,
+      quant_reasoning:`Return ${q.ann_return}, volatility ${q.ann_volatility}, Sharpe ${q.sharpe_ratio}.`,
+      fundamental_reasoning:'Full SEC 10-K analysis available with bridge server.',
+      news_reasoning:'Live news sentiment available with bridge server.',
+      sec_url:`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${ticker}&type=10-K`,
+      news_urls:[],analysis_date:new Date().toISOString().split('T')[0]};
+    const el=document.createElement('div');el.className='msg-ai';
+    el.innerHTML=`<div class="msg-ai-header"><div class="msg-ai-avatar">🤖</div><div class="msg-ai-author">PortfolioAI — ${company}</div><div class="msg-ai-time">${nowStr()}</div></div><div style="padding:0">${renderResult(result)}</div>`;
+    prg.replaceWith(el);scroll();
+  }
+  activatePill(null);
+}
+
+/* ── BRIDGE ANALYSIS (SSE) ── */
+async function runBridge(tickers){
+  for(const{ticker,company}of tickers){
+    const prg=addProgress(ticker,company);
+    try{
+      const url=`/api/analyse/stream?ticker=${encodeURIComponent(ticker)}&company=${encodeURIComponent(company)}`;
+      const es=new EventSource(url);
+      let result=null;
+      await new Promise((res,rej)=>{
+        es.addEventListener('progress',e=>{
+          const d=JSON.parse(e.data);
+          if(d.step==='quant_start'){activatePill('q');stepActive(ticker,'q');}
+          if(d.step==='quant_done'){stepDone(ticker,'q');activatePill('f');stepActive(ticker,'f');}
+          if(d.step==='fund_done'){stepDone(ticker,'f');activatePill('n');stepActive(ticker,'n');}
+          if(d.step==='news_done'){stepDone(ticker,'n');activatePill(null);stepActive(ticker,'c');}
+          if(d.step==='consensus_done'){stepDone(ticker,'c');}
+          scroll();
+        });
+        es.addEventListener('result',e=>{result=JSON.parse(e.data);$(`ps_${ticker}`).textContent='Complete ✅';es.close();res();});
+        es.addEventListener('error',()=>{es.close();rej(new Error('SSE error'));});
+        setTimeout(()=>{es.close();rej(new Error('Timeout'));},120000);
+      });
+      if(result){
+        const el=document.createElement('div');el.className='msg-ai';
+        el.innerHTML=`<div class="msg-ai-header"><div class="msg-ai-avatar">🤖</div><div class="msg-ai-author">PortfolioAI — ${company}</div><div class="msg-ai-time">${nowStr()}</div></div><div style="padding:0">${renderResult(result)}</div>`;
+        prg.replaceWith(el);scroll();
+      }
+    }catch(err){
+      $(`ps_${ticker}`).textContent='Falling back to demo…';
+      await runDemo([{ticker,company}]);
+    }
+  }
+  activatePill(null);
+}
+
+/* ── SEND ── */
+function setAnalysing(on){isAnalysing=on;const b=$('sendBtn');b.disabled=on;b.textContent=on?'⏳':'▶';}
+
+async function sendMessage(raw){
+  if(isAnalysing)return;
+  raw=raw||$('chatInput').value.trim();
+  if(!raw)return;
+  $('chatInput').value='';autoResize($('chatInput'));
+  addUser(raw);setAnalysing(true);
+  const tokens=raw.split(/[,;\n]+/).map(t=>t.trim()).filter(Boolean);
+  addAI(`Resolving <strong>${tokens.length}</strong> ${tokens.length===1?'equity':'equities'}: ${tokens.map(t=>`<code>${t}</code>`).join(' ')}`);
+  const resolved=[];
+  for(const tok of tokens){
+    try{
+      const d=await yFetch(tok,'5d','1d');
+      const meta=d?.chart?.result?.[0]?.meta;
+      resolved.push({ticker:meta?.symbol||tok.toUpperCase(),company:meta?.longName||meta?.shortName||tok.toUpperCase()});
+    }catch{resolved.push({ticker:tok.toUpperCase(),company:tok.toUpperCase()});}
+  }
+  addAI(`Launching: ${resolved.map(r=>`<code>${r.ticker}</code>`).join(' ')} — results appear as each completes…`);
+  const online=await checkBridge();
+  if(online)await runBridge(resolved);else await runDemo(resolved);
+  addSys(`✅ Analysis complete — ${resolved.length} ${resolved.length===1?'equity':'equities'} processed`);
+  setAnalysing(false);
+}
+
+function quickSend(t){$('chatInput').value=t;sendMessage(t);}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,80)+'px';}
+$('chatInput').addEventListener('input',function(){autoResize(this);});
+$('chatInput').addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+$('sendBtn').addEventListener('click',()=>sendMessage());
+
+/* ── FILE UPLOAD ── */
+async function handleFileUpload(e){
+  const file=e.target.files?.[0];if(!file)return;e.target.value='';
+  addUser(`📎 ${file.name}`);setAnalysing(true);
+  if(bridgeOnline){
+    const fd=new FormData();fd.append('file',file);
+    try{
+      const r=await fetch(`/api/analyse/file`,{method:'POST',body:fd,signal:AbortSignal.timeout(10000)});
+      const{tickers}=await r.json();
+      if(tickers?.length){addAI(`Found <strong>${tickers.length}</strong> equities in <code>${file.name}</code>. Starting analysis…`);await runBridge(tickers.map(t=>({ticker:t,company:t})));}
+    }catch{addAI('⚠️ Could not process file via bridge. Enter tickers manually.');}
+  }else{
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      const lines=ev.target.result.split('\n').map(l=>l.split(',')[0].trim()).filter(Boolean).slice(1,11);
+      if(lines.length){addAI(`Found <strong>${lines.length}</strong> equities (demo mode)…`);await runDemo(lines.map(t=>({ticker:t.toUpperCase(),company:t.toUpperCase()})));}
+    };
+    reader.readAsText(file);
+  }
+  setAnalysing(false);
+}
+
+/* ── LEFT PANEL ── */
+function analyseFromTape(sym){const s=sym.replace('^','');if(!s||s==='TNX'||s==='TNX')return;quickSend(s);}
+function showCommentary(sym,price,change,pct){
+  const isUp=change>=0;
+  $('modalTitle').textContent=`${sym} — Market Commentary`;
+  $('modalBody').innerHTML=`<p><strong>${sym}</strong> trading at <strong>$${fmt(price)}</strong>, ${isUp?'up':'down'} <strong>${Math.abs(pct).toFixed(2)}%</strong> (${isUp?'+':''}$${fmt(Math.abs(change))}) today.</p>
+  <p><strong>Signal:</strong> ${isUp?(pct>2?'Strong bullish momentum':'Modest gains'):(pct<-2?'Significant selling pressure':'Slight weakness')}.</p>
+  <p>Run a full 3-agent analysis in PortfolioAI →</p>
+  <p style="margin-top:12px"><button onclick="analyseThis('${sym}')" style="padding:8px 16px;border-radius:6px;background:var(--green);color:#000;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-mono)">▶ Analyse ${sym}</button></p>`;
+  $('modalBg').classList.add('open');
+}
+function analyseThis(sym){$('modalBg').classList.remove('open');quickSend(sym);}
+
+function showBridgeHelp(){
+  $('modalTitle').textContent='Connect PortfolioAI Backend';
+  $('modalBody').innerHTML=`<p>Run alongside your Chainlit app to enable full SEC + news analysis:</p>
+  <p style="margin:10px 0;background:var(--bg4);padding:10px 12px;border-radius:6px;font-family:var(--font-mono);font-size:11px;line-height:1.8">
+    uvicorn main:app --host 0.0.0.0 --port 8080
+  </p>
+  <p>The dashboard and AI agents run from a single server. This page IS the app — no separate servers needed.</p>`;
+  $('modalBg').classList.add('open');
+}
+
+/* ── MARKET DATA ── */
+async function yFetch(ticker,range,interval){
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}&includePrePost=false`;
+  try{const r=await fetch(url,{headers:{'Accept':'application/json'}});if(!r.ok)throw 0;return await r.json();}
+  catch{try{const r=await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`);return r.ok?await r.json():null;}catch{return null;}}
+}
+
+function updateClock(){
+  const et=new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+  const hh=String(et.getHours()).padStart(2,'0'),mm=String(et.getMinutes()).padStart(2,'0'),ss=String(et.getSeconds()).padStart(2,'0');
+  const day=et.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const h=et.getHours(),m=et.getMinutes(),dow=et.getDay();
+  const open=dow>=1&&dow<=5&&(h>9||(h===9&&m>=30))&&h<16;
+  $('barTime').textContent=`${day}  ${hh}:${mm}:${ss} ET  ${open?'🟢 OPEN':'🔴 CLOSED'}`;
+}
+setInterval(updateClock,1000);updateClock();
+
 async function loadDJIA(){
-  const data = await yFetch('^DJI','5d','1d');
-  if(!data) return;
-  try{
-    const meta   = data.chart.result[0].meta;
-    const quotes = data.chart.result[0].indicators.quote[0];
-    const closes = data.chart.result[0].timestamps;
-
-    const current  = meta.regularMarketPrice || meta.previousClose;
-    const prev     = meta.chartPreviousClose  || meta.previousClose;
-    const change   = current - prev;
-    const pct      = (change / prev)*100;
-    const isUp     = change >= 0;
-
-    // Price display
-    $('djiaPrice').textContent  = fmt(current,2);
-    $('djiaChange').textContent = (isUp?'+':'')+fmt(change,2);
-    $('djiaPct').textContent    = (isUp?'+':'')+pct.toFixed(2)+'%';
-
-    const cls = isUp ? 'up' : 'down';
-    $('djiaChange').className   = `djia-change ${cls}`;
-    $('djiaPct').className      = `djia-pct ${cls}`;
-
-    // Badge
-    const badge = $('djiaBadge');
-    badge.className = `djia-badge ${isUp?'badge-up':'badge-down'}`;
-    $('badgeArrow').textContent = isUp?'▲':'▼';
-    $('badgeText').textContent  = isUp
-      ? `Rising — ${pct.toFixed(2)}% gain today`
-      : `Declining — ${Math.abs(pct).toFixed(2)}% loss today`;
-
-    // Stats
-    $('statOpen').textContent = fmt(meta.regularMarketOpen||prev);
-    $('statHigh').textContent = fmt(meta.regularMarketDayHigh||current);
-    $('statLow').textContent  = fmt(meta.regularMarketDayLow||current);
-    const vol = meta.regularMarketVolume;
-    $('statVol').textContent  = vol ? (vol>=1e9?(vol/1e9).toFixed(1)+'B':(vol/1e6).toFixed(0)+'M') : '—';
-    $('stat52H').textContent  = meta.fiftyTwoWeekHigh ? fmt(meta.fiftyTwoWeekHigh) : '—';
-    $('stat52L').textContent  = meta.fiftyTwoWeekLow  ? fmt(meta.fiftyTwoWeekLow)  : '—';
-
-    djiaData = {current,prev,change,pct,isUp,meta};
-
-  }catch(e){ console.warn('DJIA parse error',e); }
-
-  // 1Y for sparkline and return
+  const d=await yFetch('^DJI','5d','1d');if(!d?.chart?.result?.[0])return;
+  try{const meta=d.chart.result[0].meta;
+    const cur=meta.regularMarketPrice||meta.previousClose,prev=meta.chartPreviousClose||meta.previousClose;
+    const chg=cur-prev,pct=(chg/prev)*100,isUp=chg>=0;
+    $('djiaPrice').textContent=fmt(cur);
+    $('djiaChange').textContent=(isUp?'+':'')+fmt(chg);$('djiaChange').className=`djia-change ${isUp?'up':'down'}`;
+    $('djiaPct').textContent=(isUp?'+':'')+pct.toFixed(2)+'%';$('djiaPct').className=`djia-pct ${isUp?'up':'down'}`;
+    const badge=$('djiaBadge');badge.className=`djia-badge ${isUp?'badge-up':'badge-down'}`;
+    $('badgeArrow').textContent=isUp?'▲':'▼';$('badgeText').textContent=isUp?`Rising — ${pct.toFixed(2)}% gain`:`Declining — ${Math.abs(pct).toFixed(2)}% loss`;
+    $('statOpen').textContent=fmt(meta.regularMarketOpen||prev);$('statHigh').textContent=fmt(meta.regularMarketDayHigh||cur);
+    $('statLow').textContent=fmt(meta.regularMarketDayLow||cur);
+    const vol=meta.regularMarketVolume;$('statVol').textContent=vol?(vol>=1e9?(vol/1e9).toFixed(1)+'B':(vol/1e6).toFixed(0)+'M'):'—';
+    $('stat52H').textContent=meta.fiftyTwoWeekHigh?fmt(meta.fiftyTwoWeekHigh):'—';$('stat52L').textContent=meta.fiftyTwoWeekLow?fmt(meta.fiftyTwoWeekLow):'—';
+    djiaData={cur,prev,chg,pct,isUp};
+  }catch{}
   await loadSparkline();
 }
 
 async function loadSparkline(){
-  const data = await yFetch('^DJI','1y','1wk');
-  if(!data) return;
-  try{
-    const result = data.chart.result[0];
-    const closes = result.indicators.quote[0].close.filter(Boolean);
-    if(!closes.length) return;
-
-    const start = closes[0], end = closes[closes.length-1];
-    const ret   = ((end-start)/start)*100;
-    $('stat1Y').textContent = (ret>=0?'+':'')+ret.toFixed(2)+'%';
-    $('stat1Y').style.color = ret>=0?'var(--green)':'var(--red)';
-
-    // Draw sparkline on canvas
+  const d=await yFetch('^DJI','1y','1wk');if(!d?.chart?.result?.[0])return;
+  try{const closes=d.chart.result[0].indicators.quote[0].close.filter(Boolean);if(!closes.length)return;
+    const ret=((closes.at(-1)-closes[0])/closes[0])*100;
+    $('stat1Y').textContent=(ret>=0?'+':'')+ret.toFixed(2)+'%';$('stat1Y').style.color=ret>=0?'var(--green)':'var(--red)';
     drawSparkline(closes);
-  }catch(e){}
+  }catch{}
 }
 
 function drawSparkline(closes){
-  const canvas = $('sparkCanvas');
-  if(!canvas) return;
-  const dpr = window.devicePixelRatio||1;
-  const W   = canvas.offsetWidth;
-  const H   = canvas.offsetHeight;
-  canvas.width  = W*dpr;
-  canvas.height = H*dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr,dpr);
-
-  const mn  = Math.min(...closes);
-  const mx  = Math.max(...closes);
-  const pad = 4;
-  const isUp= closes[closes.length-1] >= closes[0];
-  const col = isUp ? '#00d084' : '#ff4d6a';
-
-  ctx.clearRect(0,0,W,H);
-
-  // Gradient fill
-  const grad = ctx.createLinearGradient(0,0,0,H);
-  grad.addColorStop(0, isUp?'rgba(0,208,132,0.25)':'rgba(255,77,106,0.25)');
-  grad.addColorStop(1,'rgba(0,0,0,0)');
-
-  const xStep = (W-pad*2)/(closes.length-1);
-  const yScale= (H-pad*2)/(mx-mn||1);
-
-  ctx.beginPath();
-  closes.forEach((c,i)=>{
-    const x = pad + i*xStep;
-    const y = H - pad - (c-mn)*yScale;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  // close path for fill
-  const lastX = pad+(closes.length-1)*xStep;
-  ctx.lineTo(lastX, H);
-  ctx.lineTo(pad, H);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  closes.forEach((c,i)=>{
-    const x = pad+i*xStep;
-    const y = H - pad - (c-mn)*yScale;
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle = col;
-  ctx.lineWidth   = 1.5;
-  ctx.stroke();
-
-  // Current dot
-  const lx = pad+(closes.length-1)*xStep;
-  const ly = H - pad - (closes[closes.length-1]-mn)*yScale;
-  ctx.beginPath();
-  ctx.arc(lx,ly,3,0,Math.PI*2);
-  ctx.fillStyle = col;
-  ctx.fill();
+  const c=$('sparkCanvas');if(!c||!closes.length)return;
+  const dpr=window.devicePixelRatio||1,W=c.offsetWidth,H=c.offsetHeight;
+  c.width=W*dpr;c.height=H*dpr;const ctx=c.getContext('2d');ctx.scale(dpr,dpr);
+  const mn=Math.min(...closes),mx=Math.max(...closes),pad=4;
+  const isUp=closes.at(-1)>=closes[0],col=isUp?'#00d084':'#ff4d6a';
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,isUp?'rgba(0,208,132,0.25)':'rgba(255,77,106,0.25)');grad.addColorStop(1,'rgba(0,0,0,0)');
+  const xs=(W-pad*2)/(closes.length-1),ys=(H-pad*2)/(mx-mn||1);
+  ctx.beginPath();closes.forEach((v,i)=>{const x=pad+i*xs,y=H-pad-(v-mn)*ys;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.lineTo(pad+(closes.length-1)*xs,H);ctx.lineTo(pad,H);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+  ctx.beginPath();closes.forEach((v,i)=>{const x=pad+i*xs,y=H-pad-(v-mn)*ys;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+  const lx=pad+(closes.length-1)*xs,ly=H-pad-(closes.at(-1)-mn)*ys;
+  ctx.beginPath();ctx.arc(lx,ly,3,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
 }
 
-// ── INTERACTIVE CHART (LightweightCharts) ─────────────────────────────────────
 async function loadChart(tf){
-  currentTF = tf;
-  document.querySelectorAll('.tf-btn').forEach(b=>{
-    b.classList.toggle('active', b.dataset.tf===tf);
+  document.querySelectorAll('.tf-btn').forEach(b=>b.classList.toggle('active',b.dataset.tf===tf));
+  const wrap=$('djiaChart');wrap.innerHTML='';
+  const d=await yFetch('^DJI',tf,(tf==='10y'||tf==='5y'||tf==='2y')?'1wk':'1d');
+  if(!d?.chart?.result?.[0])return;
+  const res=d.chart.result[0],st=res.timestamps,cl=res.indicators.quote[0].close;
+  const isUp=(cl.filter(Boolean).at(-1)||0)>=(cl.find(Boolean)||0);
+  const sd=st.map((t,i)=>cl[i]?{time:Math.floor(t),value:cl[i]}:null).filter(Boolean);
+  if(chartInstance){try{chartInstance.remove();}catch{}}
+  chartInstance=LightweightCharts.createChart(wrap,{
+    width:wrap.offsetWidth,height:wrap.offsetHeight||220,
+    layout:{background:{color:'transparent'},textColor:'#8b9ab0'},
+    grid:{vertLines:{color:'rgba(255,255,255,0.04)'},horzLines:{color:'rgba(255,255,255,0.04)'}},
+    rightPriceScale:{borderColor:'rgba(255,255,255,0.08)',scaleMargins:{top:.1,bottom:.1}},
+    timeScale:{borderColor:'rgba(255,255,255,0.08)',timeVisible:true},
+    crosshair:{mode:LightweightCharts.CrosshairMode.Normal},handleScroll:true,handleScale:true
   });
-
-  const wrap = $('djiaChart');
-  wrap.innerHTML = '';
-
-  const data = await yFetch('^DJI', tf, tf==='10y'?'1wk':tf==='5y'?'1wk':tf==='2y'?'1wk':'1d');
-  if(!data?.chart?.result?.[0]) {
-    wrap.innerHTML='<div style="padding:20px;color:var(--text3);font-size:11px">Chart data unavailable.</div>';
-    return;
-  }
-
-  const result    = data.chart.result[0];
-  const stamps    = result.timestamps;
-  const closes    = result.indicators.quote[0].close;
-  const isUp      = (closes.filter(Boolean).pop()||0) >= (closes.find(Boolean)||0);
-  const lineColor = isUp ? '#00d084' : '#ff4d6a';
-  const areaTop   = isUp ? 'rgba(0,208,132,0.25)' : 'rgba(255,77,106,0.25)';
-
-  // Build series data
-  const seriesData = stamps.map((ts,i)=>{
-    if(!closes[i]) return null;
-    return { time: Math.floor(ts), value: closes[i] };
-  }).filter(Boolean);
-
-  // Create chart
-  chartInstance = LightweightCharts.createChart(wrap, {
-    width:  wrap.offsetWidth,
-    height: wrap.offsetHeight||220,
-    layout: { background:{color:'transparent'}, textColor:'#8b9ab0' },
-    grid:   { vertLines:{color:'rgba(255,255,255,0.04)'}, horzLines:{color:'rgba(255,255,255,0.04)'} },
-    rightPriceScale:{ borderColor:'rgba(255,255,255,0.08)', scaleMargins:{top:.1,bottom:.1} },
-    timeScale: { borderColor:'rgba(255,255,255,0.08)', timeVisible:true, secondsVisible:false },
-    crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
-    handleScroll: true,
-    handleScale:  true,
-  });
-
-  chartSeries = chartInstance.addAreaSeries({
-    lineColor,
-    topColor:    areaTop,
-    bottomColor: 'rgba(0,0,0,0)',
-    lineWidth:   2,
-    priceLineVisible: true,
-    priceLineColor: lineColor,
-  });
-  chartSeries.setData(seriesData);
-  chartInstance.timeScale().fitContent();
-
-  // Resize observer
-  const ro = new ResizeObserver(()=>{
-    if(chartInstance){
-      chartInstance.applyOptions({width:wrap.offsetWidth,height:wrap.offsetHeight});
-    }
-  });
-  ro.observe(wrap);
+  const s=chartInstance.addAreaSeries({lineColor:isUp?'#00d084':'#ff4d6a',topColor:isUp?'rgba(0,208,132,0.25)':'rgba(255,77,106,0.25)',bottomColor:'rgba(0,0,0,0)',lineWidth:2});
+  s.setData(sd);chartInstance.timeScale().fitContent();
+  new ResizeObserver(()=>{if(chartInstance)chartInstance.applyOptions({width:wrap.offsetWidth,height:wrap.offsetHeight});}).observe(wrap);
 }
+document.querySelectorAll('.tf-btn').forEach(b=>b.addEventListener('click',()=>loadChart(b.dataset.tf)));
 
-document.querySelectorAll('.tf-btn').forEach(b=>{
-  b.addEventListener('click',()=>loadChart(b.dataset.tf));
-});
-
-// ── TICKER TAPE ───────────────────────────────────────────────────────────────
 async function buildTape(){
-  const results = await Promise.allSettled(
-    TAPE_TICKERS.map(t=>yFetch(t,'5d','1d'))
-  );
-
+  const res=await Promise.allSettled(TAPE_TICKERS.map(t=>yFetch(t,'5d','1d')));
   let html='';
-  results.forEach((r,i)=>{
-    if(r.status!=='fulfilled'||!r.value?.chart?.result?.[0]) return;
-    const meta   = r.value.chart.result[0].meta;
-    const price  = meta.regularMarketPrice || meta.previousClose || 0;
-    const prev   = meta.chartPreviousClose || meta.previousClose || price;
-    const change = price - prev;
-    const pct    = (change/prev)*100;
-    const isUp   = change >= 0;
-    const sym    = TAPE_TICKERS[i];
-    const label  = sym.startsWith('^') ? {'^DJI':'DJIA','^GSPC':'S&P 500','^IXIC':'NASDAQ','^RUT':'Russell 2K','^TNX':'10Y Treasury'}[sym]||sym : sym;
-
-    html += `<div class="tape-item" onclick="analyseFromTape('${sym.replace('^','')}')" title="Click to analyse in PortfolioAI">
-      <span class="ti-sym">${label}</span>
-      <span class="ti-price">${fmt(price)}</span>
-      <span class="ti-chg ${isUp?'up':'down'}">${isUp?'▲':'▼'}${Math.abs(pct).toFixed(2)}%</span>
-    </div>`;
+  res.forEach((r,i)=>{
+    if(r.status!=='fulfilled'||!r.value?.chart?.result?.[0])return;
+    const meta=r.value.chart.result[0].meta,price=meta.regularMarketPrice||meta.previousClose||0;
+    const prev=meta.chartPreviousClose||meta.previousClose||price,chg=price-prev,pct=(chg/prev)*100,isUp=chg>=0;
+    const sym=TAPE_TICKERS[i],label={'^DJI':'DJIA','^GSPC':'S&P500','^IXIC':'NASDAQ','^RUT':'Russell','^TNX':'10Y Tsy'}[sym]||sym;
+    html+=`<div class="tape-item" onclick="analyseFromTape('${sym.replace('^','')}')"><span class="ti-sym">${label}</span><span class="ti-price">${fmt(price)}</span><span class="ti-chg ${isUp?'up':'down'}">${isUp?'▲':'▼'}${Math.abs(pct).toFixed(2)}%</span></div>`;
   });
-  // Duplicate for seamless loop
-  $('tapeInner').innerHTML = html+html;
+  $('tapeInner').innerHTML=html+html;
 }
 
-function analyseFromTape(sym){
-  // Send the ticker to PortfolioAI via postMessage
-  const frame = $('portfolioFrame');
-  if(frame){
-    frame.contentWindow.postMessage({type:'analyse',ticker:sym},'*');
-  }
-}
-
-// ── DOW 30 MOVERS ─────────────────────────────────────────────────────────────
+let moverData=[];
 async function loadDow30(){
-  const chunks = [];
-  for(let i=0;i<DOW30.length;i+=5) chunks.push(DOW30.slice(i,i+5));
-
-  const results = [];
+  const chunks=[];for(let i=0;i<DOW30.length;i+=5)chunks.push(DOW30.slice(i,i+5));
+  const results=[];
   for(const chunk of chunks){
-    const res = await Promise.allSettled(chunk.map(t=>yFetch(t,'5d','1d')));
-    res.forEach((r,i)=>{
-      if(r.status!=='fulfilled'||!r.value?.chart?.result?.[0]) return;
-      const meta   = r.value.chart.result[0].meta;
-      const price  = meta.regularMarketPrice||0;
-      const prev   = meta.chartPreviousClose||price;
-      const change = price-prev;
-      const pct    = prev ? (change/prev)*100 : 0;
-      results.push({ sym:chunk[i], price, change, pct, isUp:change>=0 });
+    const r=await Promise.allSettled(chunk.map(t=>yFetch(t,'5d','1d')));
+    r.forEach((res,i)=>{
+      if(res.status!=='fulfilled'||!res.value?.chart?.result?.[0])return;
+      const meta=res.value.chart.result[0].meta,price=meta.regularMarketPrice||0,prev=meta.chartPreviousClose||price;
+      const chg=price-prev,pct=prev?(chg/prev)*100:0;
+      results.push({sym:chunk[i],price,chg,pct,isUp:chg>=0});
     });
   }
-
-  moverData = results;
-  showMovers(currentMovers);
+  moverData=results;showMovers('gainers');
 }
 
 function showMovers(mode){
-  currentMovers = mode;
-  ['tabGainers','tabLosers','tabAll'].forEach(id=>{
-    $(id).classList.remove('active');
-  });
-  $({gainers:'tabGainers',losers:'tabLosers',all:'tabAll'}[mode]).classList.add('active');
-
-  let rows = [...moverData];
-  if(mode==='gainers') rows = rows.filter(r=>r.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,8);
-  if(mode==='losers')  rows = rows.filter(r=>r.pct<0).sort((a,b)=>a.pct-b.pct).slice(0,8);
-  if(mode==='all')     rows = rows.sort((a,b)=>b.pct-a.pct);
-
-  const maxAbs = Math.max(...rows.map(r=>Math.abs(r.pct)),1);
-
-  $('moversList').innerHTML = rows.map(r=>`
-    <div class="mover-row" onclick="showCommentary('${r.sym}',${r.price},${r.change},${r.pct})" title="Click for market commentary">
-      <div class="m-sym">${r.sym}</div>
-      <div class="m-name">${r.sym}</div>
-      <div class="m-price">${fmt(r.price)}</div>
-      <div class="m-chg ${r.isUp?'up':'down'}">${r.isUp?'+':''}${r.pct.toFixed(2)}%</div>
-      <div class="m-bar-wrap">
-        <div class="m-bar">
-          <div class="m-bar-fill" style="width:${Math.abs(r.pct)/maxAbs*100}%;background:${r.isUp?'var(--green)':'var(--red)'}"></div>
-        </div>
-      </div>
-    </div>
-  `).join('');
+  ['tabGainers','tabLosers','tabAll'].forEach(id=>$(id)?.classList.remove('active'));
+  $({gainers:'tabGainers',losers:'tabLosers',all:'tabAll'}[mode])?.classList.add('active');
+  let rows=[...moverData];
+  if(mode==='gainers')rows=rows.filter(r=>r.pct>0).sort((a,b)=>b.pct-a.pct).slice(0,8);
+  if(mode==='losers')rows=rows.filter(r=>r.pct<0).sort((a,b)=>a.pct-b.pct).slice(0,8);
+  if(mode==='all')rows=rows.sort((a,b)=>b.pct-a.pct);
+  const maxAbs=Math.max(...rows.map(r=>Math.abs(r.pct)),1);
+  $('moversList').innerHTML=rows.map(r=>`<div class="mover-row" onclick="showCommentary('${r.sym}',${r.price},${r.chg},${r.pct})"><div class="m-sym ${r.isUp?'up':'down'}">${r.sym}</div><div class="m-name">${r.sym}</div><div class="m-price">${fmt(r.price)}</div><div class="m-chg ${r.isUp?'up':'down'}">${r.isUp?'+':''}${r.pct.toFixed(2)}%</div><div class="m-bar-wrap"><div class="m-bar"><div class="m-bar-fill" style="width:${Math.abs(r.pct)/maxAbs*100}%;background:${r.isUp?'var(--green)':'var(--red)'}"></div></div></div></div>`).join('');
 }
 
-// ── COMMENTARY MODAL ──────────────────────────────────────────────────────────
-function showCommentary(sym, price, change, pct){
-  const isUp = change >= 0;
-  const sentiment = isUp
-    ? (pct>2?'Strong bullish momentum':'Modest gains')
-    : (pct<-2?'Significant selling pressure':'Slight weakness');
-
-  $('modalTitle').textContent = `${sym} — Market Commentary`;
-  $('modalBody').innerHTML = `
-    <p><strong>${sym}</strong> is trading at <strong>$${fmt(price)}</strong>, 
-    ${isUp?'up':'down'} <strong>${Math.abs(pct).toFixed(2)}%</strong> today 
-    (${isUp?'+':''}$${fmt(Math.abs(change))}).</p>
-    <p><strong>Sentiment:</strong> ${sentiment}. ${isUp
-      ? 'Buyers are in control with positive price action. Watch for continuation above key resistance levels.'
-      : 'Sellers are dominant. Monitor support levels for potential stabilisation or reversal signals.'
-    }</p>
-    <p>Run a full AI analysis — including Quantitative metrics, SEC fundamental review, and live News Sentiment — using the PortfolioAI agent on the right. Enter <strong>${sym}</strong> in the chat to receive a BUY / HOLD / SELL recommendation with full reasoning.</p>
-    <p style="margin-top:12px">
-      <button onclick="analyseThis('${sym}');document.getElementById('modalBg').classList.remove('open')" 
-        style="padding:8px 16px;border-radius:6px;background:var(--green);color:#000;border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-mono)">
-        ▶ Analyse ${sym} in PortfolioAI
-      </button>
-    </p>
-  `;
-  $('modalBg').classList.add('open');
-}
-
-function closeModal(e){
-  if(e.target===$('modalBg')) $('modalBg').classList.remove('open');
-}
-
-function analyseThis(sym){
-  const frame = $('portfolioFrame');
-  if(frame){
-    frame.contentWindow.postMessage({type:'analyse',ticker:sym},'*');
-  }
-}
-
-// ── BACKEND BRIDGE (for local Chainlit integration) ───────────────────────────
-// When running PortfolioAI locally (python app.py + fastapi_bridge.py),
-// this allows direct API calls. Falls back gracefully to iframe when remote.
-const BRIDGE_URL = 'http://localhost:8001';
-
-async function callBridgeAPI(endpoint, body){
-  try{
-    const r = await fetch(BRIDGE_URL+endpoint,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(5000),
-    });
-    return await r.json();
-  }catch(e){
-    return null; // Bridge not running — iframe mode
-  }
-}
-
-// Refresh DJIA every 60 seconds during market hours
-function startMarketRefresh(){
-  setInterval(async ()=>{
-    await loadDJIA();
-    drawSparkline([]); // redraw will be called inside loadSparkline
-  }, 60000);
-}
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
+/* ── INIT ── */
 async function init(){
-  // Load all market data in parallel
-  await Promise.all([
-    loadDJIA(),
-    buildTape(),
-    loadChart('1y'),
-    loadDow30(),
-  ]);
-
-  // Hide loading overlay
-  setTimeout(()=>{
-    $('overlay').classList.add('hidden');
-    setTimeout(()=>{ $('overlay').style.display='none'; }, 700);
-  }, 1200);
-
-  startMarketRefresh();
+  renderWelcome();
+  checkBridge();setInterval(checkBridge,30000);
+  await Promise.all([loadDJIA(),buildTape(),loadChart('1y'),loadDow30()]);
+  setTimeout(()=>{$('overlay').classList.add('hidden');setTimeout(()=>$('overlay').style.display='none',700);},1200);
+  setInterval(async()=>await loadDJIA(),60000);
 }
-
-// Wait for LightweightCharts to be ready
-window.addEventListener('load', init);
-
-// Redraw sparkline on resize
-window.addEventListener('resize',()=>{
-  if(djiaData.current) loadSparkline();
-});
+window.addEventListener('load',init);
+window.addEventListener('resize',()=>{if(Object.keys(djiaData).length)loadSparkline();});
 </script>
-
-<!-- ═══════════════════════════════════════════════════════════════════════════
-     FASTAPI BRIDGE SCRIPT
-     Save as fastapi_bridge.py alongside app.py
-     Run: uvicorn fastapi_bridge:app --port 8001
-     This exposes REST endpoints the dashboard can call for deeper integration
-═══════════════════════════════════════════════════════════════════════════════
-# fastapi_bridge.py
-#
-# pip install fastapi uvicorn python-multipart
-#
-# Paste this into a new file: fastapi_bridge.py
-#
-# from fastapi import FastAPI
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# import yfinance as yf, numpy as np
-# from datetime import datetime
-# from app import get_djia_data, get_quant_metrics, PortfolioBot
-# import asyncio
-#
-# app = FastAPI(title="PortfolioAI Bridge", version="1.0")
-# app.add_middleware(CORSMiddleware,
-#     allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-#
-# bot = PortfolioBot()
-#
-# class TickerReq(BaseModel):
-#     ticker: str
-#     company_name: str = ""
-#
-# @app.get("/djia")
-# def djia():
-#     return get_djia_data()
-#
-# @app.post("/quant")
-# def quant(req: TickerReq):
-#     return get_quant_metrics(req.ticker)
-#
-# @app.post("/analyse")
-# async def analyse(req: TickerReq):
-#     return await bot.analyse_ticker(req.ticker, req.company_name or req.ticker)
-#
-# @app.get("/health")
-# def health():
-#     return {"status": "ok", "time": datetime.now().isoformat()}
-═══════════════════════════════════════════════════════════════════════════ -->
-
 </body>
 </html>

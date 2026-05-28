@@ -1,24 +1,24 @@
 version: "3.9"
 
-# -----------------------------------------------------------------------
-# LOCAL DEVELOPMENT ONLY
+# ─────────────────────────────────────────────────────────────────────────────
+# LOCAL DEVELOPMENT
 # For production, push to GitHub — Railway auto-deploys from main branch.
-# -----------------------------------------------------------------------
+# ─────────────────────────────────────────────────────────────────────────────
 
 services:
   portfolioai:
-    build: .                    # builds from local Dockerfile
+    build: .
     container_name: portfolioai
     restart: unless-stopped
     ports:
-      - "8080:8080"             # app runs on 8080 — matches Dockerfile and railway.toml
-    environment:
-      - PORT=8080
+      - "8080:8080"      # http://localhost:8080  → market dashboard
+                         # http://localhost:8080/chat  → Chainlit agent UI
+                         # http://localhost:8080/api/* → REST/SSE endpoints
     env_file:
-      - .env                    # copy .env.example → .env and fill in real values
+      - .env             # copy .env.example → .env and fill in values
     volumes:
-      - ./outputs:/app/outputs           # persist Excel reports between restarts
-      - ./client_input:/app/client_input # mount private client files
+      - ./outputs:/app/outputs           # persist Excel reports
+      - ./client_input:/app/client_input # private client files
     logging:
       driver: "json-file"
       options:
