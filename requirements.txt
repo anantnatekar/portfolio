@@ -1,11 +1,7 @@
-# ── LlamaIndex core ───────────────────────────────────────────────────────────
+# ── LlamaIndex ───────────────────────────────────────────────────────────────
 llama-index-core>=0.12.0
-
-# ── LLM & Embeddings ─────────────────────────────────────────────────────────
 llama-index-llms-anthropic
 llama-index-embeddings-huggingface
-
-# ── Data readers & tools ─────────────────────────────────────────────────────
 llama-index-readers-file
 llama-index-tools-tavily-research
 
@@ -19,11 +15,18 @@ numpy
 plotly
 
 # ── Chainlit UI ───────────────────────────────────────────────────────────────
-# Upper bound avoids the null-metadata bug in 2.10.0
+# Upper bound avoids the null-metadata bug introduced in 2.10.0.
+# Chainlit bundles its own pinned versions of fastapi, starlette, and uvicorn
+# internally — do NOT pin those packages here or pip will conflict.
 chainlit>=1.3.0,<2.10.0
 
-# ── FastAPI unified server (NEW) ──────────────────────────────────────────────
-fastapi>=0.111.0
-uvicorn[standard]>=0.29.0   # includes websocket support needed by Chainlit
-python-multipart>=0.0.9     # file upload support for /api/analyse/file
-aiofiles>=23.0.0            # async static file serving
+# ── Extra packages needed by main.py (must be compatible with Chainlit's pins) ─
+# python-multipart: needed for /api/analyse/file (UploadFile)
+# aiofiles:         needed by FastAPI StaticFiles for /outputs/*
+# These have no version conflicts with Chainlit's internal deps.
+python-multipart>=0.0.9
+aiofiles>=23.0.0
+
+# NOTE: Do NOT add explicit fastapi, starlette, or uvicorn entries here.
+# Chainlit installs specific pinned versions of all three as hard dependencies.
+# Adding them separately causes pip resolver conflicts that break the build.

@@ -3,9 +3,9 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# /health is served by FastAPI in main.py — reliable, no Chainlit dependency
+# FastAPI /health responds instantly — no Chainlit dependency
 healthcheckPath = "/health"
-# 120s start-period: HuggingFace model download on cold start takes ~60-90s
+# 120s: HuggingFace downloads BAAI/bge-small-en-v1.5 on first cold start
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
