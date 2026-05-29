@@ -670,9 +670,8 @@ function showBridgeHelp(){
 
 /* ── MARKET DATA ── */
 async function yFetch(ticker,range,interval){
-  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}&includePrePost=false`;
-  try{const r=await fetch(url,{headers:{'Accept':'application/json'}});if(!r.ok)throw 0;return await r.json();}
-  catch{try{const r=await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=${range}&interval=${interval}`);return r.ok?await r.json():null;}catch{return null;}}
+  try{const r=await fetch(`/api/proxy/chart?ticker=${encodeURIComponent(ticker)}&range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`);if(!r.ok)throw 0;return await r.json();}
+  catch{return null;}
 }
 
 function updateClock(){

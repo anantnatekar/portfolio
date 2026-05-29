@@ -2,20 +2,21 @@
 main.py — PortfolioAI Unified Entry Point
 ==========================================
 Single process serving:
-  /          → portfolioai_dashboard.html  (market dashboard + native chat)
-  /api/*     → REST + SSE analysis endpoints
-  /health    → Railway healthcheck
-  /chat      → Chainlit AI agent UI (mounted LAST — required by Chainlit)
+  /                → portfolioai_dashboard.html (market dashboard + native chat)
+  /api/*           → REST + SSE analysis endpoints
+  /api/proxy/chart → Yahoo Finance CORS proxy (server-side fetch)
+  /health          → Railway healthcheck
+  /chat            → Chainlit AI agent UI (mounted LAST — required by Chainlit)
 
 CRITICAL ordering rule (Chainlit issue #1166):
   mount_chainlit() MUST be called AFTER all FastAPI routes are registered.
   Any route defined after mount_chainlit() will return 404.
 
 Run locally:
-    uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+  uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 
 Deploy:
-    Railway reads Dockerfile → runs the CMD above automatically.
+  Railway reads Dockerfile → runs the CMD above automatically.
 """
 
 import asyncio
@@ -27,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import httpx
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -54,7 +56,6 @@ log = logging.getLogger("PortfolioAI")
 _validate_env()
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
-# Do NOT set docs_url / openapi_url on a subpath — conflicts with Chainlit mounts
 app = FastAPI(
     title="PortfolioAI",
     version="2.0.0",
@@ -86,18 +87,17 @@ def get_bot() -> PortfolioBot:
         _bot = PortfolioBot()
     return _bot
 
-
 # ── Constants ─────────────────────────────────────────────────────────────────
 DOW_30 = [
     "AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW",
     "GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM",
     "MRK","MSFT","NKE","PG","TRV","UNH","V","VZ","WBA","WMT",
 ]
+
 TAPE_SYMBOLS = [
     "^DJI","^GSPC","^IXIC","^RUT","GLD","USO","^TNX",
     "AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","JPM","V","UNH",
 ]
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _safe(v, fallback=None):
@@ -111,9 +111,9 @@ def _fmt_cap(n) -> str:
     try:
         n = float(n)
         if np.isnan(n): return "N/A"
-        if n >= 1e12:   return f"${n/1e12:.2f}T"
-        if n >= 1e9:    return f"${n/1e9:.2f}B"
-        if n >= 1e6:    return f"${n/1e6:.2f}M"
+        if n >= 1e12: return f"${n/1e12:.2f}T"
+        if n >= 1e9:  return f"${n/1e9:.2f}B"
+        if n >= 1e6:  return f"${n/1e6:.2f}M"
         return f"${n:,.0f}"
     except Exception:
         return "N/A"
@@ -136,9 +136,8 @@ def _is_market_open() -> bool:
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
-
 # ════════════════════════════════════════════════════════════════════════════
-#  ALL ROUTES — must be defined BEFORE mount_chainlit() is called
+# ALL ROUTES — must be defined BEFORE mount_chainlit() is called
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── Root — serve the dashboard HTML ─────────────────────────────────────────
@@ -157,8 +156,6 @@ async def serve_dashboard():
 # ── Favicon — prevents log noise from browser requests ──────────────────────
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    # Return a minimal 1×1 transparent PNG as the favicon
-    # Prevents continuous 404 errors in Railway logs
     import base64
     TRANSPARENT_PNG = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
@@ -171,13 +168,52 @@ async def favicon():
 @app.get("/health")
 def health():
     return {
-        "status":      "ok",
-        "service":     "PortfolioAI v2.0",
-        "timestamp":   datetime.now().isoformat(),
+        "status": "ok",
+        "service": "PortfolioAI v2.0",
+        "timestamp": datetime.now().isoformat(),
         "market_open": _is_market_open(),
-        "dashboard":   DASHBOARD.exists(),
+        "dashboard": DASHBOARD.exists(),
     }
 
+# ── Yahoo Finance CORS proxy ─────────────────────────────────────────────────
+# The browser cannot call Yahoo Finance directly due to CORS restrictions.
+# This endpoint proxies the request server-side where CORS does not apply.
+@app.get("/api/proxy/chart")
+async def proxy_yahoo_chart(
+    ticker: str = Query(..., description="Ticker symbol, e.g. AAPL or ^DJI"),
+    range: str = Query("1y", description="Range, e.g. 1d, 5d, 1mo, 3mo, 1y, 2y, 5y, 10y"),
+    interval: str = Query("1d", description="Interval, e.g. 1d, 1wk, 1mo"),
+):
+    """
+    Server-side proxy for Yahoo Finance chart API.
+    Avoids CORS errors when called from the browser dashboard.
+    """
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+    params = {"range": range, "interval": interval, "includePrePost": "false"}
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(url, params=params, headers=headers)
+            if r.status_code == 200:
+                return r.json()
+            # Fallback to query2
+            url2 = url.replace("query1", "query2")
+            r2 = await client.get(url2, params=params, headers=headers)
+            if r2.status_code == 200:
+                return r2.json()
+            raise HTTPException(503, f"Yahoo Finance returned {r.status_code}")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.error("Yahoo proxy error for %s: %s", ticker, exc)
+        raise HTTPException(503, f"Could not fetch data for {ticker}: {exc}")
 
 # ── DJIA snapshot ────────────────────────────────────────────────────────────
 @app.get("/api/djia")
@@ -186,7 +222,6 @@ def djia_snapshot():
     if "error" in data:
         raise HTTPException(503, data["error"])
     return data
-
 
 # ── DJIA chart series ────────────────────────────────────────────────────────
 @app.get("/api/chart/{period}")
@@ -204,11 +239,10 @@ def djia_chart(period: str):
         hist = hist.reset_index()
         dc = "Date" if "Date" in hist.columns else "Datetime"
         hist[dc] = pd.to_datetime(hist[dc]).dt.tz_localize(None)
-
         series, closes_list, ma50, ma200 = [], [], [], []
         for _, row in hist.iterrows():
             ts = int(row[dc].timestamp())
-            c  = _safe(row.get("Close"))
+            c = _safe(row.get("Close"))
             closes_list.append(c)
             series.append({
                 "time": ts, "value": c,
@@ -235,14 +269,13 @@ def djia_chart(period: str):
         log.error("Chart error: %s", exc)
         raise HTTPException(503, str(exc))
 
-
 # ── Ticker tape ──────────────────────────────────────────────────────────────
 @app.get("/api/tape")
 def ticker_tape():
     results = []
     for sym in TAPE_SYMBOLS:
         try:
-            info  = yf.Ticker(sym).info
+            info = yf.Ticker(sym).info
             price = info.get("regularMarketPrice") or info.get("previousClose", 0) or 0
             prev  = (
                 info.get("regularMarketPreviousClose")
@@ -261,7 +294,6 @@ def ticker_tape():
         except Exception as e:
             log.warning("Tape %s: %s", sym, e)
     return {"tickers": results, "updated": datetime.now().isoformat()}
-
 
 # ── DOW 30 components ────────────────────────────────────────────────────────
 @app.get("/api/dow30")
@@ -293,9 +325,8 @@ def dow30_components():
             log.warning("DOW30 %s: %s", sym, e)
     return {
         "components": sorted(results, key=lambda x: x["pct"] or 0, reverse=True),
-        "updated":    datetime.now().isoformat(),
+        "updated": datetime.now().isoformat(),
     }
-
 
 # ── Quantitative metrics (fast — no LLM) ────────────────────────────────────
 @app.get("/api/quant/{ticker}")
@@ -306,7 +337,6 @@ def quant_metrics(ticker: str):
         raise HTTPException(404, data["error"])
     return data
 
-
 # ── SSE streaming analysis ───────────────────────────────────────────────────
 @app.get("/api/analyse/stream")
 async def analyse_stream(
@@ -314,7 +344,7 @@ async def analyse_stream(
     company: str = Query("",  description="Display name override (optional)"),
 ):
     """
-    Server-Sent Events.  Dashboard opens EventSource → receives:
+    Server-Sent Events. Dashboard opens EventSource → receives:
       event: progress  data: {"step": "quant_start"|"quant_done"|"fund_start"|
                                       "fund_done"|"news_done"|"consensus_done"}
       event: result    data: {full analysis dict}
@@ -344,7 +374,6 @@ async def analyse_stream(
                                     "ticker": resolved_ticker})
             await asyncio.sleep(0)
 
-            # Full 3-agent analysis (Quant + Fundamental + News internally)
             result = await bot.analyse_ticker(resolved_ticker, company)
 
             yield _sse("progress", {"step": "fund_done",
@@ -369,12 +398,11 @@ async def analyse_stream(
         event_gen(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control":               "no-cache",
-            "X-Accel-Buffering":           "no",   # disable nginx buffering
+            "Cache-Control":      "no-cache",
+            "X-Accel-Buffering":  "no",
             "Access-Control-Allow-Origin": "*",
         },
     )
-
 
 # ── File upload → extract tickers ────────────────────────────────────────────
 @app.post("/api/analyse/file")
@@ -394,13 +422,14 @@ async def analyse_file(file: UploadFile = File(...)):
         else:
             raise HTTPException(400, "Only CSV and Excel files are supported.")
 
-        cols_lower  = {c.lower(): c for c in df.columns}
-        target_col  = next(
+        cols_lower = {c.lower(): c for c in df.columns}
+        target_col = next(
             (cols_lower[h]
              for h in ("ticker", "symbol", "stock", "company", "name")
              if h in cols_lower),
             df.columns[0],
         )
+
         raw = df[target_col].dropna().astype(str).str.strip().tolist()
         seen = set()
         for val in raw:
@@ -411,19 +440,20 @@ async def analyse_file(file: UploadFile = File(...)):
                     resolved, _ = resolve_ticker(v)
                     if resolved:
                         tickers.append(resolved)
-                if len(tickers) >= 20:
-                    break
+                    if len(tickers) >= 20:
+                        break
+
         return {"filename": filename, "tickers": tickers, "count": len(tickers)}
+
     except HTTPException:
         raise
     except Exception as exc:
         log.error("File parse error: %s", exc)
         raise HTTPException(400, f"Could not parse file: {exc}")
 
-
 # ════════════════════════════════════════════════════════════════════════════
-#  mount_chainlit MUST be LAST — after all routes above are registered.
-#  (Chainlit issue #1166: routes defined after this call return 404)
+# mount_chainlit MUST be LAST — after all routes above are registered.
+# (Chainlit issue #1166: routes defined after this call return 404)
 # ════════════════════════════════════════════════════════════════════════════
-from chainlit.utils import mount_chainlit          # noqa: E402
+from chainlit.utils import mount_chainlit  # noqa: E402
 mount_chainlit(app=app, target="app.py", path="/chat")
