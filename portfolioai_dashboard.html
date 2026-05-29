@@ -734,7 +734,8 @@ async function loadChart(tf){
   const wrap=$('djiaChart');wrap.innerHTML='';
   const d=await yFetch('^DJI',tf,(tf==='10y'||tf==='5y'||tf==='2y')?'1wk':'1d');
   if(!d?.chart?.result?.[0])return;
-  const res=d.chart.result[0],st=res.timestamps,cl=res.indicators.quote[0].close;
+  const res=d.chart.result[0],st=res.timestamp||res.timestamps,cl=res.indicators?.quote?.[0]?.close;
+  if(!st||!cl)return;
   const isUp=(cl.filter(Boolean).at(-1)||0)>=(cl.find(Boolean)||0);
   const sd=st.map((t,i)=>cl[i]?{time:Math.floor(t),value:cl[i]}:null).filter(Boolean);
   if(chartInstance){try{chartInstance.remove();}catch{}}
