@@ -451,6 +451,43 @@ async def analyse_file(file: UploadFile = File(...)):
         log.error("File parse error: %s", exc)
         raise HTTPException(400, f"Could not parse file: {exc}")
 
+# ── Feedback endpoint — writes to feedback.txt for orchestrator to read ─────
+from fastapi import Body  # noqa: E402 (already imported above in practice)
+FEEDBACK_FILE = Path("./feedback.txt")
+
+@app.post("/api/feedback")
+async def save_feedback(payload: dict = Body(...)):
+    """
+    Receives feedback from the dashboard and appends it to feedback.txt.
+    The orchestration layer reads this file before generating recommendations,
+    treating user comments as an additional input signal.
+    """
+    ts      = payload.get("ts", datetime.now().isoformat())
+    ticker  = payload.get("ticker", "")
+    rating  = payload.get("rating", "")
+    comment = payload.get("comment", "").strip()
+    if not comment:
+        raise HTTPException(400, "comment is required")
+    line = f"[{ts}]"
+    if ticker: line += f" TICKER={ticker}"
+    if rating: line += f" RATING={rating}"
+    line += f"\n{comment}\n{'-'*60}\n"
+    try:
+        with FEEDBACK_FILE.open("a", encoding="utf-8") as f:
+            f.write(line)
+        log.info("Feedback saved: %s %s", ticker or "—", rating or "—")
+        return {"status": "saved"}
+    except Exception as exc:
+        log.error("Feedback write error: %s", exc)
+        raise HTTPException(500, f"Could not write feedback: {exc}")
+
+@app.get("/api/feedback")
+async def get_feedback():
+    """Returns all feedback entries — used by the orchestrator."""
+    if not FEEDBACK_FILE.exists():
+        return {"feedback": ""}
+    return {"feedback": FEEDBACK_FILE.read_text(encoding="utf-8")}
+
 # ════════════════════════════════════════════════════════════════════════════
 # mount_chainlit MUST be LAST — after all routes above are registered.
 # (Chainlit issue #1166: routes defined after this call return 404)

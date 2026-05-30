@@ -11,9 +11,11 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#1a2133;--bg2:#212d42;--bg3:#283550;--bg4:#2f3d5a;--bg5:#1e2a40;
+  --bg:#1a2133;--bg2:#212d42;--bg3:#283550;--bg4:#2f3d5a;--bg5:#141c2b;
   --border:rgba(255,255,255,0.10);--border2:rgba(255,255,255,0.18);
   --text:#eef2f8;--text2:#9aadc6;--text3:#6b82a0;
+  --left-bg:#ffffff;--left-text:#1a2133;--left-text2:#4b5c74;--left-text3:#8898a8;
+  --left-border:rgba(0,0,0,0.08);--left-stat-bg:#f4f6fa;
   --green:#00d084;--green-dim:rgba(0,208,132,0.12);--green-glow:rgba(0,208,132,0.06);
   --red:#ff4d6a;--red-dim:rgba(255,77,106,0.12);
   --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.10);
@@ -25,7 +27,7 @@
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:13px;line-height:1.5;overflow:hidden}
 
 /* TOP BAR */
-.topbar{height:48px;background:#1e2b3f;border-bottom:1px solid var(--border2);display:flex;align-items:center;padding:0 20px;gap:16px;position:fixed;top:0;left:0;right:0;z-index:100}
+.topbar{height:48px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:fixed;top:0;left:0;right:0;z-index:100}
 .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .brand-dot{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#00d084,#00a86b);display:flex;align-items:center;justify-content:center;font-size:14px}
 .brand-name{font-family:var(--font-serif);font-size:17px;color:var(--text);letter-spacing:-.01em}
@@ -49,7 +51,30 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .shell{display:grid;grid-template-columns:520px 1fr;height:100vh;padding-top:48px}
 
 /* LEFT */
-.left{background:#253048;border-right:2px solid rgba(255,255,255,0.13);display:flex;flex-direction:column;overflow:hidden;box-shadow:4px 0 24px rgba(0,0,0,0.25)}
+.left{background:var(--left-bg);border-right:2px solid rgba(0,0,0,0.10);display:flex;flex-direction:column;overflow:hidden;box-shadow:4px 0 24px rgba(0,0,0,0.12)}
+.left .djia-eyebrow{color:var(--left-text3)}
+.left .djia-name{color:var(--left-text2)}
+.left .djia-price{color:var(--left-text)}
+.left .stat-box{background:var(--left-stat-bg);border:1px solid var(--left-border)}
+.left .stat-label{color:var(--left-text3)}
+.left .stat-val{color:var(--left-text)}
+.left .spark-label-row{color:var(--left-text3)}
+.left .chart-title{color:var(--left-text)}
+.left .tf-btn{border-color:var(--left-border);color:var(--left-text2);background:#fff}
+.left .tf-btn:hover,.left .tf-btn.active{background:var(--left-stat-bg);color:var(--left-text);border-color:#c0ccd8}
+.left .movers-header{background:var(--left-bg)}
+.left .movers-title{color:var(--left-text)}
+.left .m-tab{color:var(--left-text3)}
+.left .m-tab.active{background:var(--left-stat-bg);color:var(--left-text)}
+.left .mover-row:hover{background:var(--left-stat-bg)}
+.left .m-sym{color:var(--left-text)}
+.left .m-name{color:var(--left-text3)}
+.left .m-price{color:var(--left-text)}
+.left .news-strip{background:#f0f3f8;border-top:1px solid var(--left-border)}
+.left .news-label{color:#00a86b}
+.left .news-item{color:var(--left-text2);border-right-color:var(--left-border)}
+.left .news-item span{color:var(--left-text3)}
+.left .m-bar{background:var(--left-border)}
 .djia-hero{padding:20px 20px 16px;border-bottom:1px solid var(--border);background:linear-gradient(160deg,rgba(0,208,132,.03) 0%,transparent 60%);flex-shrink:0}
 .djia-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
 .djia-name{font-family:var(--font-serif);font-size:13px;color:var(--text2);margin-bottom:10px;font-style:italic}
@@ -102,6 +127,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* RIGHT PANEL — NATIVE CHAT */
 .right{display:flex;flex-direction:column;overflow:hidden;background:#141c2b}
+.right-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:#1a2336;flex-shrink:0}
+.rtab{flex:1;padding:10px 0;font-size:12px;font-weight:500;font-family:var(--font-mono);text-align:center;cursor:pointer;color:var(--text3);border:none;background:transparent;border-bottom:2px solid transparent;transition:all .18s;letter-spacing:.04em}
+.rtab:hover{color:var(--text2)}
+.rtab.active{color:var(--green);border-bottom-color:var(--green);background:rgba(0,208,132,0.04)}
+.tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.tab-panel.active{display:flex}
 .right-header{height:44px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0}
 .rh-title{font-family:var(--font-serif);font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px}
 .rh-title strong{color:var(--green)}
@@ -238,7 +269,46 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .modal-body p{margin-bottom:10px}
 .modal-body strong{color:var(--text)}
 
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+/* About Me panel */
+.about-panel{flex:1;overflow-y:auto;padding:28px 28px 20px}
+.about-avatar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#00d084,#1a6aff);display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:18px;flex-shrink:0}
+.about-name{font-family:var(--font-serif);font-size:26px;color:var(--text);margin-bottom:4px}
+.about-role{font-size:13px;color:var(--green);font-family:var(--font-mono);margin-bottom:18px;letter-spacing:.04em}
+.about-bio{font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:24px}
+.about-section-title{font-size:10px;font-family:var(--font-mono);color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.about-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+.about-chip{font-size:11px;font-family:var(--font-mono);padding:4px 10px;border-radius:4px;border:1px solid var(--border2);color:var(--text2);background:var(--bg3)}
+.about-links{display:flex;gap:10px;flex-wrap:wrap}
+.about-link{font-size:12px;font-family:var(--font-mono);color:var(--blue);padding:5px 14px;border:1px solid rgba(59,130,246,0.25);border-radius:5px;text-decoration:none;background:rgba(59,130,246,0.06);transition:all .15s}
+.about-link:hover{background:rgba(59,130,246,0.14);border-color:var(--blue)}
+.about-divider{height:1px;background:var(--border);margin:20px 0}
+/* Feedback panel */
+.feedback-panel{flex:1;overflow-y:auto;padding:24px 28px}
+.fb-title{font-family:var(--font-serif);font-size:20px;color:var(--text);margin-bottom:6px}
+.fb-sub{font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6}
+.fb-label{font-size:10px;font-family:var(--font-mono);color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.fb-ticker-row{display:flex;gap:8px;margin-bottom:16px}
+.fb-ticker{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color .15s}
+.fb-ticker:focus{border-color:var(--border2)}
+.fb-rating-row{display:flex;gap:8px;margin-bottom:16px}
+.fb-rating-btn{flex:1;padding:8px 0;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);font-size:11px;font-family:var(--font-mono);cursor:pointer;transition:all .15s}
+.fb-rating-btn:hover{border-color:var(--border2);color:var(--text)}
+.fb-rating-btn.sel-buy{background:var(--green-dim);color:var(--green);border-color:rgba(0,208,132,.3)}
+.fb-rating-btn.sel-hold{background:var(--amber-dim);color:var(--amber);border-color:rgba(245,158,11,.3)}
+.fb-rating-btn.sel-sell{background:var(--red-dim);color:var(--red);border-color:rgba(255,77,106,.3)}
+.fb-textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:12px;font-family:var(--font-sans);line-height:1.6;resize:vertical;min-height:110px;outline:none;transition:border-color .15s;margin-bottom:16px}
+.fb-textarea:focus{border-color:var(--border2)}
+.fb-textarea::placeholder{color:var(--text3)}
+.fb-submit{width:100%;padding:10px;border-radius:7px;border:none;background:var(--green);color:#000;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font-sans)}
+.fb-submit:hover{background:#00f09b}
+.fb-submit:disabled{background:var(--bg4);color:var(--text3);cursor:not-allowed}
+.fb-history{margin-top:24px}
+.fb-history-title{font-size:10px;font-family:var(--font-mono);color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.fb-entry{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;margin-bottom:8px}
+.fb-entry-meta{font-size:10px;font-family:var(--font-mono);color:var(--text3);margin-bottom:4px}
+.fb-entry-text{font-size:12px;color:var(--text2);line-height:1.6}
+.fb-toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#000;font-size:12px;font-weight:600;padding:10px 18px;border-radius:7px;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;z-index:999}
+.fb-toast.show{opacity:1;transform:translateY(0)}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
 @media(max-width:900px){.shell{grid-template-columns:1fr}.right{display:none}}
 </style>
 </head>
@@ -329,7 +399,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     </div>
   </aside>
 
-  <!-- RIGHT: NATIVE PORTFOLIOAI CHAT -->
+  <!-- RIGHT: TABBED PANEL -->
   <main class="right">
     <div class="right-header">
       <div class="rh-title"><span>Portfolio<strong>AI</strong></span><span style="font-size:12px;color:var(--text3);font-family:var(--font-sans)">— Equity Research Agent</span></div>
@@ -345,24 +415,85 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <span id="bridgeStatus">Connecting…</span>
       </div>
     </div>
-    <div class="chat-messages" id="chatMessages"></div>
-    <div class="chat-input-area">
-      <div class="input-row">
-        <div class="input-wrap">
-          <textarea class="chat-input" id="chatInput" placeholder="Enter tickers or company names — e.g. AAPL, Microsoft, NVDA…" rows="1" autocomplete="off"></textarea>
-          <button class="upload-btn" title="Upload CSV / Excel portfolio" onclick="document.getElementById('fileInput').click()">📎</button>
-        </div>
-        <button class="send-btn" id="sendBtn">▶</button>
-      </div>
-      <div class="input-hints">
-        <span class="hint-chip" onclick="quickSend('AAPL')">AAPL</span>
-        <span class="hint-chip" onclick="quickSend('MSFT, NVDA, GOOGL')">MSFT, NVDA, GOOGL</span>
-        <span class="hint-chip" onclick="quickSend('Apple, Tesla, Amazon')">Company names</span>
-        <span class="hint-chip" onclick="quickSend('JPM, GS, BAC, WFC')">Bank sector</span>
-      </div>
-      <div class="bridge-notice" id="bridgeNotice"></div>
+
+    <!-- Tabs -->
+    <div class="right-tabs">
+      <button class="rtab active" id="rtab-chat" onclick="switchTab('chat')">💬 Research</button>
+      <button class="rtab" id="rtab-about" onclick="switchTab('about')">👤 About Me</button>
+      <button class="rtab" id="rtab-feedback" onclick="switchTab('feedback')">📝 Feedback</button>
     </div>
-    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)"/>
+
+    <!-- Chat tab -->
+    <div class="tab-panel active" id="panel-chat" style="flex-direction:column">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="chat-input-area">
+        <div class="input-row">
+          <div class="input-wrap">
+            <textarea class="chat-input" id="chatInput" placeholder="Enter tickers or company names — e.g. AAPL, Microsoft, NVDA…" rows="1" autocomplete="off"></textarea>
+            <button class="upload-btn" title="Upload CSV / Excel portfolio" onclick="document.getElementById('fileInput').click()">📎</button>
+          </div>
+          <button class="send-btn" id="sendBtn">▶</button>
+        </div>
+        <div class="input-hints">
+          <span class="hint-chip" onclick="quickSend('AAPL')">AAPL</span>
+          <span class="hint-chip" onclick="quickSend('MSFT, NVDA, GOOGL')">MSFT, NVDA, GOOGL</span>
+          <span class="hint-chip" onclick="quickSend('Apple, Tesla, Amazon')">Company names</span>
+          <span class="hint-chip" onclick="quickSend('JPM, GS, BAC, WFC')">Bank sector</span>
+        </div>
+        <div class="bridge-notice" id="bridgeNotice"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)"/>
+    </div>
+
+    <!-- About Me tab -->
+    <div class="tab-panel" id="panel-about">
+      <div class="about-panel">
+        <div class="about-avatar">👤</div>
+        <div class="about-name">Anant Natekar</div>
+        <div class="about-role">Quantitative Analyst &amp; AI Engineer</div>
+        <div class="about-bio">
+          I build AI-powered tools at the intersection of finance and machine learning. PortfolioAI is my flagship project — a multi-agent equity research system that combines quantitative metrics, SEC EDGAR filings, and live news sentiment to deliver institutional-grade BUY / HOLD / SELL recommendations in seconds.<br/><br/>
+          With a background spanning portfolio management, Python-driven data pipelines, and large language model orchestration, I focus on making complex financial analysis accessible and actionable.
+        </div>
+        <div class="about-section-title">Skills &amp; Stack</div>
+        <div class="about-chips">
+          <span class="about-chip">Python</span><span class="about-chip">FastAPI</span><span class="about-chip">LangChain</span>
+          <span class="about-chip">Claude AI</span><span class="about-chip">yFinance</span><span class="about-chip">SEC EDGAR</span>
+          <span class="about-chip">Pandas / NumPy</span><span class="about-chip">Railway</span><span class="about-chip">Docker</span>
+          <span class="about-chip">Quantitative Finance</span><span class="about-chip">NLP / Sentiment</span>
+        </div>
+        <div class="about-divider"></div>
+        <div class="about-section-title">Connect</div>
+        <div class="about-links">
+          <a class="about-link" href="https://github.com/anantnatekar" target="_blank">⌥ GitHub</a>
+          <a class="about-link" href="https://linkedin.com/in/anantnatekar" target="_blank">🔗 LinkedIn</a>
+          <a class="about-link" href="mailto:anant@example.com">✉ Email</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feedback tab -->
+    <div class="tab-panel" id="panel-feedback">
+      <div class="feedback-panel">
+        <div class="fb-title">Share Feedback</div>
+        <div class="fb-sub">Your comments are read by the AI orchestrator as additional context before generating recommendations. Help improve the model's outputs.</div>
+        <div class="fb-label">Ticker (optional)</div>
+        <div class="fb-ticker-row">
+          <input class="fb-ticker" id="fbTicker" placeholder="e.g. AAPL" maxlength="10"/>
+        </div>
+        <div class="fb-label">Your assessment</div>
+        <div class="fb-rating-row">
+          <button class="fb-rating-btn" id="fbBuy" onclick="selectRating('BUY')">👍 BUY</button>
+          <button class="fb-rating-btn" id="fbHold" onclick="selectRating('HOLD')">🤝 HOLD</button>
+          <button class="fb-rating-btn" id="fbSell" onclick="selectRating('SELL')">👎 SELL</button>
+        </div>
+        <div class="fb-label">Comments</div>
+        <textarea class="fb-textarea" id="fbText" placeholder="Share your reasoning, market observations, or corrections to the AI's analysis…"></textarea>
+        <button class="fb-submit" id="fbSubmit" onclick="submitFeedback()">Submit Feedback</button>
+        <div class="fb-history" id="fbHistory"></div>
+      </div>
+    </div>
+
   </main>
 
 </div>
@@ -791,6 +922,70 @@ function showMovers(mode){
   if(mode==='all')rows=rows.sort((a,b)=>b.pct-a.pct);
   const maxAbs=Math.max(...rows.map(r=>Math.abs(r.pct)),1);
   $('moversList').innerHTML=rows.map(r=>`<div class="mover-row" onclick="showCommentary('${r.sym}',${r.price},${r.chg},${r.pct})"><div class="m-sym ${r.isUp?'up':'down'}">${r.sym}</div><div class="m-name">${r.sym}</div><div class="m-price">${fmt(r.price)}</div><div class="m-chg ${r.isUp?'up':'down'}">${r.isUp?'+':''}${r.pct.toFixed(2)}%</div><div class="m-bar-wrap"><div class="m-bar"><div class="m-bar-fill" style="width:${Math.abs(r.pct)/maxAbs*100}%;background:${r.isUp?'var(--green)':'var(--red)'}"></div></div></div></div>`).join('');
+}
+
+/* ── TAB SWITCHING ── */
+function switchTab(name){
+  ['chat','about','feedback'].forEach(t=>{
+    $(`rtab-${t}`)?.classList.toggle('active',t===name);
+    $(`panel-${t}`)?.classList.toggle('active',t===name);
+  });
+  if(name==='feedback')loadFeedbackHistory();
+}
+
+/* ── FEEDBACK ── */
+let fbRating='';
+function selectRating(r){
+  fbRating=r;
+  ['BUY','HOLD','SELL'].forEach(v=>{
+    const btn=$(`fb${v[0]}${v.slice(1).toLowerCase()}`)||document.getElementById(`fb${v}`);
+    if(btn){btn.className='fb-rating-btn'+(fbRating===v?` sel-${v.toLowerCase()}`:'');}
+  });
+}
+function showToast(msg){
+  let t=document.querySelector('.fb-toast');
+  if(!t){t=document.createElement('div');t.className='fb-toast';document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function loadFeedbackHistory(){
+  const raw=localStorage.getItem('portfolioai_feedback');
+  const entries=raw?JSON.parse(raw):[];
+  const h=$('fbHistory');if(!h)return;
+  if(!entries.length){h.innerHTML='';return;}
+  h.innerHTML=`<div class="fb-history-title">Recent Feedback (${entries.length})</div>`+
+    entries.slice(-5).reverse().map(e=>`
+      <div class="fb-entry">
+        <div class="fb-entry-meta">${e.ts}${e.ticker?' · '+e.ticker:''}${e.rating?' · '+e.rating:''}</div>
+        <div class="fb-entry-text">${e.comment}</div>
+      </div>`).join('');
+}
+async function submitFeedback(){
+  const ticker=($('fbTicker').value||'').trim().toUpperCase();
+  const comment=($('fbText').value||'').trim();
+  if(!comment){$('fbText').focus();return;}
+  const btn=$('fbSubmit');btn.disabled=true;btn.textContent='Submitting…';
+  const entry={ts:new Date().toLocaleString(),ticker,rating:fbRating,comment};
+  // Save locally for history display
+  const raw=localStorage.getItem('portfolioai_feedback');
+  const entries=raw?JSON.parse(raw):[];
+  entries.push(entry);
+  localStorage.setItem('portfolioai_feedback',JSON.stringify(entries));
+  // POST to backend to write to feedback.txt
+  try{
+    await fetch('/api/feedback',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(entry)
+    });
+  }catch(e){console.warn('Feedback POST failed (will still save locally):',e);}
+  showToast('✓ Feedback saved — the AI will factor this in');
+  $('fbText').value='';$('fbTicker').value='';
+  fbRating='';['BUY','HOLD','SELL'].forEach(v=>{
+    const b=document.getElementById(`fb${v}`);if(b)b.className='fb-rating-btn';
+  });
+  btn.disabled=false;btn.textContent='Submit Feedback';
+  loadFeedbackHistory();
 }
 
 /* ── INIT ── */

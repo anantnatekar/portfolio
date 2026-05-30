@@ -4,6 +4,7 @@ import asyncio
 import logging
 import json
 import re
+from pathlib import Path
 import pandas as pd
 import yfinance as yf
 import numpy as np
@@ -455,6 +456,34 @@ class PortfolioBot:
         )
 
         # ── Step 5: LLM synthesis only (not orchestration) ───────────────────
+        # Load user feedback from the dashboard — treated as an additional signal
+        feedback_path = Path("./feedback.txt")
+        user_feedback = ""
+        if feedback_path.exists():
+            try:
+                raw_feedback = feedback_path.read_text(encoding="utf-8").strip()
+                if raw_feedback:
+                    # Filter for entries mentioning this ticker (or generic ones)
+                    relevant_lines = []
+                    current_block = []
+                    for line in raw_feedback.splitlines():
+                        current_block.append(line)
+                        if line.startswith("-" * 10):  # separator
+                            block_text = "\n".join(current_block)
+                            if ticker.upper() in block_text.upper() or "TICKER=" not in block_text:
+                                relevant_lines.append(block_text)
+                            current_block = []
+                    if relevant_lines:
+                        user_feedback = "\n".join(relevant_lines[-10:])  # last 10 relevant entries
+            except Exception as exc:
+                logger.warning("Could not read feedback.txt: %s", exc)
+
+        feedback_section = (
+            f"USER FEEDBACK FROM DASHBOARD: {user_feedback}\n"
+            f"(Treat this as additional qualitative signal when forming your reasoning. "
+            f"If feedback conflicts with data, note it explicitly in overall_reasoning.)\n\n"
+        ) if user_feedback else ""
+
         synthesis_prompt = (
             f"You are a senior equity analyst. Based on the data below for {company_name} ({ticker}), "
             f"write a structured analysis. Return ONLY a JSON object starting with {{ and ending with }}.\n\n"
@@ -462,6 +491,7 @@ class PortfolioBot:
             f"FUNDAMENTAL DATA: {fundamental.get('summary', 'N/A')}\n"
             f"NEWS DATA: {news.get('summary', 'N/A')}\n"
             f"CONSENSUS: {json.dumps(consensus)}\n\n"
+            f"{feedback_section}"
             f"Return JSON with these exact keys:\n"
             f"ticker, company_name, recommendation, confidence, "
             f"quant_signal, fundamental_signal, news_signal, "
