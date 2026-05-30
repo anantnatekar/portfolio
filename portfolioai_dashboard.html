@@ -419,7 +419,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <!-- Tabs -->
     <div class="right-tabs">
       <button class="rtab active" id="rtab-chat" onclick="switchTab('chat')">💬 Research</button>
-      <button class="rtab" id="rtab-about" onclick="switchTab('about')">👤 About Me</button>
+      <button class="rtab" id="rtab-about" onclick="switchTab('about')">ℹ️ About</button>
       <button class="rtab" id="rtab-feedback" onclick="switchTab('feedback')">📝 Feedback</button>
     </div>
 
@@ -445,29 +445,69 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)"/>
     </div>
 
-    <!-- About Me tab -->
+    <!-- About tab -->
     <div class="tab-panel" id="panel-about">
       <div class="about-panel">
-        <div class="about-avatar">👤</div>
-        <div class="about-name">Anant Natekar</div>
-        <div class="about-role">Quantitative Analyst &amp; AI Engineer</div>
+        <div class="about-avatar">📈</div>
+        <div class="about-name">PortfolioAI</div>
+        <div class="about-role">Multi-Agent Equity Research Platform</div>
         <div class="about-bio">
-          I build AI-powered tools at the intersection of finance and machine learning. PortfolioAI is my flagship project — a multi-agent equity research system that combines quantitative metrics, SEC EDGAR filings, and live news sentiment to deliver institutional-grade BUY / HOLD / SELL recommendations in seconds.<br/><br/>
-          With a background spanning portfolio management, Python-driven data pipelines, and large language model orchestration, I focus on making complex financial analysis accessible and actionable.
+          PortfolioAI analyses stocks using three independent AI agents — Quantitative, Fundamental, and News Sentiment — then synthesises their signals into a single <strong style="color:var(--green)">BUY</strong>, <strong style="color:var(--amber)">HOLD</strong>, or <strong style="color:var(--red)">SELL</strong> recommendation with full reasoning. Built for investors who want institutional-grade analysis at their fingertips.
         </div>
-        <div class="about-section-title">Skills &amp; Stack</div>
+
+        <div class="about-section-title">How to use it</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--green-dim);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono)">1</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6"><strong style="color:var(--text)">Type a ticker or company name</strong> in the Research tab — e.g. <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:11px;color:var(--green)">AAPL</code>, <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:11px;color:var(--green)">Microsoft</code>, or a comma-separated list like <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:11px;color:var(--green)">NVDA, TSLA, JPM</code>.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--green-dim);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono)">2</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6"><strong style="color:var(--text)">Upload a portfolio file</strong> using the 📎 button — CSV or Excel with a ticker/company column. PortfolioAI will analyse every equity in the file.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--green-dim);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono)">3</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6"><strong style="color:var(--text)">Watch the agents work</strong> in real time — Quant, Fundamental, and Sentiment each run independently, then an Orchestrator synthesises the final recommendation.</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div style="min-width:24px;height:24px;border-radius:50%;background:var(--green-dim);color:var(--green);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font-mono)">4</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6"><strong style="color:var(--text)">Download the Excel report</strong> — a full breakdown of all signals, reasoning, metrics, and source links for every stock analysed.</div>
+          </div>
+        </div>
+
+        <div class="about-section-title">The three agents</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px">
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">📈 Quantitative Agent</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.6">Calculates 1-year annualised return, volatility, and Sharpe ratio from live price data. Determines if the risk-adjusted performance is positive or negative.</div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px">
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">🏛 Fundamental Agent</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.6">Searches SEC EDGAR for the latest 10-K filings, extracting business summaries, risk factors, sector and industry data. Falls back to yFinance company data if filings are unavailable.</div>
+          </div>
+          <div style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px">
+            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">📰 News Sentiment Agent</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.6">Searches live news, analyst ratings, and market commentary via Tavily. Scores sentiment positive or negative based on keyword analysis of the latest headlines.</div>
+          </div>
+        </div>
+
+        <div class="about-section-title">Key features</div>
         <div class="about-chips">
-          <span class="about-chip">Python</span><span class="about-chip">FastAPI</span><span class="about-chip">LangChain</span>
-          <span class="about-chip">Claude AI</span><span class="about-chip">yFinance</span><span class="about-chip">SEC EDGAR</span>
-          <span class="about-chip">Pandas / NumPy</span><span class="about-chip">Railway</span><span class="about-chip">Docker</span>
-          <span class="about-chip">Quantitative Finance</span><span class="about-chip">NLP / Sentiment</span>
+          <span class="about-chip">Live DJIA dashboard</span>
+          <span class="about-chip">Real-time ticker tape</span>
+          <span class="about-chip">Interactive price charts</span>
+          <span class="about-chip">DOW 30 components</span>
+          <span class="about-chip">Multi-stock analysis</span>
+          <span class="about-chip">SEC EDGAR integration</span>
+          <span class="about-chip">Excel report export</span>
+          <span class="about-chip">Portfolio file upload</span>
+          <span class="about-chip">User feedback loop</span>
+          <span class="about-chip">AI orchestration</span>
         </div>
+
         <div class="about-divider"></div>
-        <div class="about-section-title">Connect</div>
-        <div class="about-links">
-          <a class="about-link" href="https://github.com/anantnatekar" target="_blank">⌥ GitHub</a>
-          <a class="about-link" href="https://linkedin.com/in/anantnatekar" target="_blank">🔗 LinkedIn</a>
-          <a class="about-link" href="mailto:anant@example.com">✉ Email</a>
+        <div style="font-size:11px;color:var(--text3);line-height:1.7">
+          PortfolioAI is for informational purposes only and does not constitute financial advice. Always conduct your own research before making investment decisions.
         </div>
       </div>
     </div>
