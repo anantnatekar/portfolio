@@ -1,3 +1,82 @@
+"""
+PortfolioAI — app.py
+
+═══════════════════════════════════════════════════════════════════════════
+ ARCHITECTURE — read this before touching analyse_ticker() or PortfolioBot
+═══════════════════════════════════════════════════════════════════════════
+
+This is a direct-call pipeline, NOT a multi-agent orchestration framework.
+Three data sources are fetched with plain Python function calls, a simple
+vote produces a consensus, one LLM call turns that into readable prose, and
+a second LLM call argues against the result before it's shown to the user.
+
+    User input (ticker / company name / CSV upload)
+                    │
+                    ▼
+            resolve_ticker()  ──  parse_ticker_input() / parse_file_upload()
+                    │
+                    ▼
+    ┌───────────────────────────────────────────────────────┐
+    │              PortfolioBot.analyse_ticker()             │
+    │                                                         │
+    │   ┌─────────────┐ ┌───────────────────┐ ┌────────────┐│
+    │   │ get_quant_   │ │ _fetch_fundamental │ │fetch_news_ ││
+    │   │ metrics()    │ │  (SEC EDGAR /      │ │ direct()   ││
+    │   │ (yfinance)   │ │   yfinance fallback)│ │ (Tavily)   ││
+    │   └──────┬───────┘ └─────────┬──────────┘ └─────┬──────┘│
+    │          │                   │                   │      │
+    │          └─────────┬─────────┴─────────┬─────────┘      │
+    │                     ▼                   │                │
+    │          calculate_consensus()          │                │
+    │        (majority vote: 2/3=66%,         │                │
+    │              3/3=100%)                   │                │
+    │                     │                                    │
+    │                     ▼                                    │
+    │      Settings.llm.acomplete(synthesis_prompt)             │
+    │        → self._extract_json() → result dict               │
+    │        (falls back to _build_direct_result() if the        │
+    │         LLM response can't be parsed as JSON)               │
+    │                     │                                        │
+    │                     ▼                                        │
+    │          self.critique_result(result)                        │
+    │   Second, INDEPENDENT LLM call. Argues the strongest case     │
+    │   AGAINST result['recommendation'] using the same reasoning    │
+    │   fields. Never changes the recommendation — display only.     │
+    │   Adds result['critique'] = {counter_thesis, key_weak_points,  │
+    │                               strength, confidence_note}       │
+    │                     │                                          │
+    └─────────────────────┼──────────────────────────────────────────┘
+                           ▼
+              return result   (now includes "critique")
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+    _format_inline_result()      generate_excel()
+    → cl.Message() card in       → one row per ticker,
+      the Chainlit UI, incl.       incl. Critic Strength /
+      the "⚖️ Adversarial          Critic Counter-Thesis
+      Critic" section              columns
+
+WHY NO AGENT FRAMEWORK: an earlier version used LlamaIndex's AgentWorkflow
+with a ReActAgent per data source (quant_agent, analyst_agent, pulse_agent)
+coordinated by an optimizer_agent. It was replaced because the ReAct
+tool-calling loop was less reliable at returning clean, parseable JSON than
+a direct fetch + single synthesis call. That version is not in this file —
+see git history (`git log --all -- app.py`, check the commit before the
+cleanup that added this docstring) if multi-agent orchestration needs to be
+revisited, e.g. if a data source needs multi-step reasoning a direct call
+can't express.
+
+WHY TWO SEPARATE LLM CALLS (synthesis, then critique) INSTEAD OF ONE:
+asking a single call to both recommend AND critique itself tends to produce
+a critique that's hedged or self-serving, since the same context that
+produced the recommendation is right there biasing the "counter" argument.
+Keeping them as separate calls, with the critic only seeing the *reasoning
+output* (not free rein to re-derive its own read of the raw data), keeps
+the critique honest without letting it silently overrule the recommendation.
+═══════════════════════════════════════════════════════════════════════════
+"""
+
 import os
 import io
 import asyncio
@@ -14,13 +93,8 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
-from llama_index.core.agent.workflow import AgentWorkflow, ReActAgent
-from llama_index.core.tools import QueryEngineTool, ToolMetadata, FunctionTool
-from llama_index.core.schema import Document
+from llama_index.core import Settings
 from llama_index.llms.anthropic import Anthropic
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.tools.tavily_research import TavilyToolSpec
 
 # ---------------------------------------------------------------------------
 # 1. LOGGING & STARTUP VALIDATION
@@ -155,117 +229,8 @@ def _fmt_large(n) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 4. AGENTS
+# 4. DATA SOURCES
 # ---------------------------------------------------------------------------
-def get_analyst_agent(client_files_path: str = "./client_input") -> ReActAgent:
-    os.makedirs(client_files_path, exist_ok=True)
-
-    # Check for files BEFORE calling SimpleDirectoryReader
-    # It throws ValueError internally if the folder is empty — guard against it
-    has_files = any(
-        f.is_file()
-        for f in os.scandir(client_files_path)
-    )
-    if has_files:
-        client_docs = SimpleDirectoryReader(client_files_path).load_data()
-    else:
-        logger.warning("No files in '%s' — analyst agent using placeholder.", client_files_path)
-        client_docs = [Document(text="No private client files loaded.")]
-
-    client_index = VectorStoreIndex.from_documents(client_docs)
-    client_tool = QueryEngineTool(
-        query_engine=client_index.as_query_engine(),
-        metadata=ToolMetadata(
-            name="client_file_search",
-            description="Searches private client holdings and uploaded files.",
-        ),
-    )
-
-    def search_web_10k(ticker: str, form_type: str = "10-K") -> str:
-        """Fetch fundamental risks from SEC EDGAR with proper headers."""
-        sec_url = f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}&type={form_type}&dateb=&owner=include&count=5"
-        try:
-            # SEC requires a descriptive User-Agent — anonymous requests get 403
-            import requests
-            headers = {
-                "User-Agent": "PortfolioAI research@portfolioai.com",
-                "Accept-Encoding": "gzip, deflate",
-                "Host": "efts.sec.gov"
-            }
-
-            # Search EDGAR full-text search for the ticker's latest 10-K
-            search_url = f"https://efts.sec.gov/LATEST/search-index?q=%22{ticker}%22&dateRange=custom&startdt=2023-01-01&forms={form_type}"
-            resp = requests.get(search_url, headers=headers, timeout=15)
-            resp.raise_for_status()
-            hits = resp.json().get("hits", {}).get("hits", [])
-
-            if not hits:
-                # Fallback: use yfinance to get business description as proxy
-                info = yf.Ticker(ticker).info
-                summary = (
-                    f"Business: {info.get('longBusinessSummary', 'No description available.')[:500]} "
-                    f"Sector: {info.get('sector', 'N/A')}. "
-                    f"Industry: {info.get('industry', 'N/A')}."
-                )
-                return json.dumps({"summary": summary, "source_url": sec_url})
-
-            # Pull the filing document URL from the first hit
-            filing_url = hits[0].get("_source", {}).get("file_date", "")
-            accession = hits[0].get("_source", {}).get("period_of_report", "")
-            summary = (
-                f"SEC {form_type} filing found for {ticker}. "
-                f"Key risk factors should be reviewed directly at the SEC filing. "
-                f"Filing period: {accession}."
-            )
-            return json.dumps({"summary": summary, "source_url": sec_url})
-
-        except Exception as exc:
-            logger.error("SEC filing fetch failed for %s: %s", ticker, exc)
-            # Graceful fallback — use yfinance company info as substitute
-            try:
-                info = yf.Ticker(ticker).info
-                summary = (
-                    f"SEC filing unavailable. Company overview: "
-                    f"{info.get('longBusinessSummary', 'No description available.')[:500]} "
-                    f"Sector: {info.get('sector', 'N/A')}. "
-                    f"Industry: {info.get('industry', 'N/A')}."
-                )
-                return json.dumps({"summary": summary, "source_url": sec_url})
-            except Exception:
-                return json.dumps({"summary": f"Could not retrieve filing data for {ticker}.", "source_url": sec_url})
-
-    return ReActAgent(
-        name="analyst_agent",
-        description="Fundamental analyst: queries SEC EDGAR for 10-K filings.",
-        system_prompt=(
-            "You are a Fundamental Analyst. Use search_web_10k to get risks from SEC filings. "
-            "Return a JSON object with keys: 'fundamental_summary' (string), "
-            "'fundamental_signal' ('positive' or 'negative'), 'sec_url' (string)."
-        ),
-        tools=[client_tool, FunctionTool.from_defaults(fn=search_web_10k)],
-        llm=Settings.llm,
-    )
-
-
-def get_pulse_agent() -> ReActAgent:
-    tavily_key = os.environ.get("TAVILY_API_KEY")
-    if not tavily_key:
-        raise EnvironmentError("TAVILY_API_KEY is not set.")
-    tavily_tool = TavilyToolSpec(api_key=tavily_key)
-    return ReActAgent(
-        name="pulse_agent",
-        description="Pulls real-time news and sentiment via Tavily.",
-        system_prompt=(
-            "You are a Market Strategist. Search for recent news, analyst ratings, and "
-            "insider trades for the given ticker. "
-            "Return a JSON object with keys: 'news_summary' (string), "
-            "'news_signal' ('positive' or 'negative'), 'news_urls' (list of up to 3 source URLs)."
-        ),
-        tools=tavily_tool.to_tool_list(),
-        llm=Settings.llm,
-    )
-
-
 def fetch_news_direct(ticker: str, company_name: str) -> dict:
     """
     Fetch news directly via Tavily API without going through the agent pipeline.
@@ -320,18 +285,6 @@ def fetch_news_direct(ticker: str, company_name: str) -> dict:
         }
 
 
-def get_quant_agent() -> ReActAgent:
-    def get_metrics(ticker: str) -> str:
-        return json.dumps(get_quant_metrics(ticker))
-
-    return ReActAgent(
-        name="quant_agent",
-        description="Calculates Sharpe ratio and historical performance metrics.",
-        tools=[FunctionTool.from_defaults(fn=get_metrics)],
-        llm=Settings.llm,
-    )
-
-
 # ---------------------------------------------------------------------------
 # 5. PORTFOLIO BOT
 # ---------------------------------------------------------------------------
@@ -343,47 +296,19 @@ class PortfolioBot:
             model="claude-sonnet-4-6",
             api_key=os.environ.get("ANTHROPIC_API_KEY"),
         )
-        # HuggingFace embeddings run locally — no API key needed
-        Settings.embed_model = HuggingFaceEmbedding(
-            model_name="BAAI/bge-small-en-v1.5"
-        )
         self.output_dir = "./outputs"
         os.makedirs(self.output_dir, exist_ok=True)
-        self._build_workflow()
-
-    def _build_workflow(self):
-        optimizer = ReActAgent(
-            name="optimizer_agent",
-            description="Lead orchestrator: coordinates all agents and synthesises results.",
-            system_prompt=(
-                "You are a Quant Lead analysing a single equity. You MUST:\n"
-                "1. Call quant_agent with the ticker to get performance metrics and signal.\n"
-                "2. Call analyst_agent with the ticker to get SEC filing risks and signal.\n"
-                "3. Call pulse_agent with the ticker to get news sentiment and signal.\n"
-                "4. Call calculate_consensus with the three signals.\n"
-                "5. Return ONLY a valid JSON object (no markdown, no extra text) with these exact keys:\n"
-                "   ticker, company_name, recommendation (BUY/HOLD/SELL), confidence (66% or 100%),\n"
-                "   quant_signal, fundamental_signal, news_signal,\n"
-                "   ann_return, ann_volatility, sharpe_ratio, current_price, market_cap, pe_ratio,\n"
-                "   52w_high, 52w_low,\n"
-                "   quant_reasoning (2-3 sentences), fundamental_reasoning (2-3 sentences),\n"
-                "   news_reasoning (2-3 sentences), overall_reasoning (3-4 sentences),\n"
-                "   sec_url, news_urls (list of strings), analysis_date"
-            ),
-            tools=[
-                FunctionTool.from_defaults(fn=self.calculate_consensus),
-            ],
-            llm=Settings.llm,
-        )
-        self.workflow = AgentWorkflow(
-            agents=[
-                get_analyst_agent(),
-                get_pulse_agent(),
-                get_quant_agent(),
-                optimizer,
-            ],
-            root_agent="optimizer_agent",
-        )
+        # NOTE: the earlier true multi-agent orchestration (AgentWorkflow +
+        # a ReActAgent per data source — quant_agent, analyst_agent,
+        # pulse_agent — coordinated by an optimizer_agent) has been removed
+        # from this file. analyse_ticker() below replaced it with direct
+        # data fetches + a single LLM synthesis call, which proved more
+        # reliable at returning parseable JSON (see analyse_ticker's own
+        # docstring). The full ReActAgent/AgentWorkflow version, including
+        # get_analyst_agent(), get_pulse_agent(), get_quant_agent(), and
+        # _build_workflow(), is preserved in git history — run
+        # `git log --all -- app.py` and check the commit before this
+        # cleanup if that approach needs to be revisited.
 
     def calculate_consensus(
         self, quant_sig: str, analyst_sig: str, pulse_sig: str
@@ -427,6 +352,60 @@ class PortfolioBot:
                 continue
 
         return None
+
+    async def critique_result(self, result: dict) -> dict:
+        """
+        Adversarial critic — runs AFTER a result dict has a final
+        recommendation (from either the primary synthesis path or the
+        _build_direct_result fallback). Argues the strongest case AGAINST
+        result['recommendation'] using the same three reasoning fields the
+        synthesis step produced. Display-only: never overwrites the
+        recommendation, only adds result['critique'] for the UI and the
+        Excel report to show alongside it.
+        """
+        prompt = (
+            f"You are the adversarial critic in an equity research pipeline. "
+            f"A recommendation of {result.get('recommendation', 'HOLD')} was made "
+            f"for {result.get('company_name', result.get('ticker', ''))} "
+            f"({result.get('ticker', '')}) with {result.get('confidence', '')} confidence.\n\n"
+            f"QUANT REASONING: {result.get('quant_reasoning', 'N/A')}\n"
+            f"FUNDAMENTAL REASONING: {result.get('fundamental_reasoning', 'N/A')}\n"
+            f"NEWS REASONING: {result.get('news_reasoning', 'N/A')}\n"
+            f"OVERALL REASONING: {result.get('overall_reasoning', 'N/A')}\n\n"
+            f"Your job is NOT to agree or summarise. Construct the strongest "
+            f"possible case AGAINST the {result.get('recommendation', 'HOLD')} call, "
+            f"using only the evidence above. If the recommendation is BUY, argue "
+            f"for HOLD or SELL. If SELL, argue for HOLD or BUY. If HOLD, argue for "
+            f"whichever of BUY or SELL has more support in the evidence, however "
+            f"partial. Do not invent facts not present above. If the evidence is "
+            f"genuinely one-sided, say so honestly and mark strength as 'weak' "
+            f"rather than manufacturing doubt.\n\n"
+            f"Return ONLY a JSON object, no markdown, no preamble:\n"
+            f"{{\n"
+            f'  "counter_thesis": "2-4 sentence argument for the opposite call",\n'
+            f'  "key_weak_points": ["specific weakness 1", "specific weakness 2"],\n'
+            f'  "strength": "weak" | "moderate" | "strong",\n'
+            f'  "confidence_note": "one short sentence for a UI badge"\n'
+            f"}}"
+        )
+
+        try:
+            llm_response = await Settings.llm.acomplete(prompt)
+            raw = str(llm_response).strip()
+            critique = self._extract_json(raw)
+        except Exception as exc:
+            logger.error("Critic agent failed for %s: %s", result.get("ticker"), exc)
+            critique = None
+
+        if not critique:
+            critique = {
+                "counter_thesis": "Critic agent response could not be parsed.",
+                "key_weak_points": [],
+                "strength": "weak",
+                "confidence_note": "Critique unavailable for this run.",
+            }
+
+        return critique
 
     async def analyse_ticker(self, ticker: str, company_name: str) -> dict:
         """
@@ -530,12 +509,15 @@ class PortfolioBot:
             result["52w_low"] = quant.get("52w_low", "N/A")
             result["sec_url"] = fundamental.get("sec_url", "")
             result["news_urls"] = news.get("urls", [])
+            result["critique"] = await self.critique_result(result)
             return result
 
         # If LLM synthesis fails, build from raw data
-        return self._build_direct_result(
+        fallback_result = self._build_direct_result(
             ticker, company_name, quant, fundamental, news, consensus, today
         )
+        fallback_result["critique"] = await self.critique_result(fallback_result)
+        return fallback_result
 
     def _fetch_fundamental(self, ticker: str) -> dict:
         """Fetch fundamental data directly — same logic as search_web_10k but callable from Python."""
@@ -657,61 +639,6 @@ class PortfolioBot:
             "analysis_date": today,
         }
 
-    def _build_fallback_result(
-        self, ticker: str, company_name: str, quant: dict, today: str, reasoning: str
-    ) -> dict:
-        """
-        Build a best-effort result using direct quant data when the agent
-        pipeline fails to return parseable JSON. Still shows useful data
-        rather than an error screen.
-        """
-        quant_sig = quant.get("signal", "negative")
-        sharpe = quant.get("sharpe_ratio", 0)
-        try:
-            sharpe_val = float(sharpe)
-        except (ValueError, TypeError):
-            sharpe_val = 0
-
-        # Simple quant-only recommendation as fallback
-        if sharpe_val > 1.5:
-            rec, conf = "BUY", "66%"
-        elif sharpe_val > 0.5:
-            rec, conf = "HOLD", "66%"
-        else:
-            rec, conf = "SELL", "66%"
-
-        return {
-            "ticker": ticker,
-            "company_name": company_name,
-            "recommendation": rec,
-            "confidence": conf,
-            "quant_signal": quant_sig,
-            "fundamental_signal": "unavailable",
-            "news_signal": "unavailable",
-            "ann_return": quant.get("ann_return", "N/A"),
-            "ann_volatility": quant.get("ann_volatility", "N/A"),
-            "sharpe_ratio": quant.get("sharpe_ratio", "N/A"),
-            "current_price": quant.get("current_price", "N/A"),
-            "market_cap": quant.get("market_cap", "N/A"),
-            "pe_ratio": quant.get("pe_ratio", "N/A"),
-            "52w_high": quant.get("52w_high", "N/A"),
-            "52w_low": quant.get("52w_low", "N/A"),
-            "quant_reasoning": (
-                f"Sharpe ratio of {quant.get('sharpe_ratio','N/A')} with annual return of "
-                f"{quant.get('ann_return','N/A')} and volatility of {quant.get('ann_volatility','N/A')}."
-            ),
-            "fundamental_reasoning": "Fundamental analysis unavailable — SEC data could not be retrieved.",
-            "news_reasoning": "News sentiment unavailable — agent pipeline did not complete.",
-            "overall_reasoning": (
-                f"Recommendation based on quantitative metrics only (fundamental and news agents "
-                f"did not return structured data). Sharpe ratio of {quant.get('sharpe_ratio','N/A')} "
-                f"suggests a {rec} signal. Full analysis: {reasoning[:300]}"
-            ),
-            "sec_url": f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={ticker}&type=10-K",
-            "news_urls": [],
-            "analysis_date": today,
-        }
-
     def generate_excel(self, results: list[dict]) -> str:
         """Write a richly formatted Excel report and return the file path."""
         path = os.path.join(self.output_dir, f"PortfolioAI_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
@@ -750,6 +677,8 @@ class PortfolioBot:
                 "News Source 1":        news_urls[0] if len(news_urls) > 0 else "",
                 "News Source 2":        news_urls[1] if len(news_urls) > 1 else "",
                 "News Source 3":        news_urls[2] if len(news_urls) > 2 else "",
+                "Critic Strength":      (r.get("critique") or {}).get("strength", ""),
+                "Critic Counter-Thesis":(r.get("critique") or {}).get("counter_thesis", ""),
             })
 
         df = pd.DataFrame(rows)
@@ -844,6 +773,8 @@ class PortfolioBot:
             22: 35, # News 1
             23: 35, # News 2
             24: 35, # News 3
+            25: 14, # Critic Strength
+            26: 50, # Critic Counter-Thesis
         }
         for col_idx, width in col_widths.items():
             ws.column_dimensions[get_column_letter(col_idx)].width = width
@@ -1162,6 +1093,17 @@ def _format_inline_result(r: dict) -> str:
     sec_link = f"  - [🏛️ SEC Filing]({sec_url})" if sec_url else ""
     sources  = "\n".join(filter(None, [sec_link, news_links])) or "  - No sources available"
 
+    critique = r.get("critique") or {}
+    strength_emoji = {"weak": "🟢", "moderate": "🟡", "strong": "🔴"}.get(critique.get("strength", "weak"), "🟢")
+    weak_points = "\n".join(f"- {p}" for p in critique.get("key_weak_points", []))
+    critique_section = (
+        f" — {strength_emoji} {critique.get('strength', 'weak').title()} counter-case\n\n"
+        f"{critique.get('counter_thesis', 'No critique available.')}\n\n"
+        f"{weak_points}\n\n"
+        f"_{critique.get('confidence_note', '')}_"
+        if critique else " — unavailable for this run"
+    )
+
     return f"""
 ---
 # {emoji} {r.get('company_name', r.get('ticker', ''))} &nbsp; `{r.get('ticker', '')}`
@@ -1194,6 +1136,10 @@ def _format_inline_result(r: dict) -> str:
 ## 💡 Overall Assessment
 
 {r.get('overall_reasoning', 'N/A')}
+
+---
+
+## ⚖️ Adversarial Critic{critique_section}
 
 ---
 
@@ -1245,9 +1191,10 @@ async def on_chat_start():
     await cl.Message(
         content=(
             "# 👋 Welcome to PortfolioAI\n\n"
-            "I analyse equities using **three AI agents** — Quantitative, Fundamental (SEC filings), "
+            "I analyse equities using **three data agents** — Quantitative, Fundamental (SEC filings), "
             "and News Sentiment — to deliver a **BUY / HOLD / SELL** recommendation "
-            "with full reasoning displayed directly on screen.\n\n"
+            "with full reasoning displayed directly on screen. An **adversarial critic agent** "
+            "then argues the strongest case against that call, shown alongside it for transparency.\n\n"
             "---\n\n"
             "## How to use\n\n"
             "| Input type | Example |\n"
