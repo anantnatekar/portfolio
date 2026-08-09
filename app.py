@@ -1,6 +1,6 @@
 """
 PortfolioAI — app.py
-
+Created by vibe coding - Anant Natekar
 ═══════════════════════════════════════════════════════════════════════════
  ARCHITECTURE — read this before touching analyse_ticker() or PortfolioBot
 ═══════════════════════════════════════════════════════════════════════════
