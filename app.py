@@ -1,6 +1,6 @@
 """
 PortfolioAI — app.py
-Created by vibe coding - Anant Natekar
+
 ═══════════════════════════════════════════════════════════════════════════
  ARCHITECTURE — read this before touching analyse_ticker() or PortfolioBot
 ═══════════════════════════════════════════════════════════════════════════
@@ -405,6 +405,11 @@ class PortfolioBot:
                 "confidence_note": "Critique unavailable for this run.",
             }
 
+        logger.info(
+            "Critique generated for %s: strength=%s, has_thesis=%s",
+            result.get("ticker"), critique.get("strength"),
+            bool(critique.get("counter_thesis")),
+        )
         return critique
 
     async def analyse_ticker(self, ticker: str, company_name: str) -> dict:
