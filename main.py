@@ -141,7 +141,8 @@ def _sse(event: str, data: dict) -> str:
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── Root — serve the dashboard HTML ─────────────────────────────────────────
-DASHBOARD = Path("./portfolioai_dashboard.html")
+#DASHBOARD = Path("./portfolioai_dashboard.html")
+DASHBOARD = Path(__file__).parent / "portfolioai_dashboard.html"
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def serve_dashboard():
