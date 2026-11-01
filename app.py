@@ -1066,6 +1066,41 @@ def _recommendation_emoji(rec: str) -> str:
     return {"BUY": "✅", "SELL": "🔴", "HOLD": "🟡"}.get(rec, "❓")
 
 
+TRADE_EXEC_APP_URL = os.environ.get("TRADE_EXEC_APP_URL", "").rstrip("/")
+
+
+async def _forward_to_trade_exec(result: dict) -> bool:
+    """
+    Best-effort hand-off of a BUY/SELL result to trade-exec-app, so it's
+    sitting there ready to review the moment the user clicks through.
+    Deliberately fails silently — a trade-exec-app outage must never break
+    PortfolioAI's own analysis flow, which is why this is always called
+    after the result has already been shown to the user, never before.
+    """
+    if not TRADE_EXEC_APP_URL:
+        return False
+    try:
+        import requests
+
+        def _post():
+            return requests.post(
+                f"{TRADE_EXEC_APP_URL}/api/recommendations",
+                json={
+                    "ticker": result.get("ticker", ""),
+                    "action": result.get("recommendation", "HOLD"),
+                    "reasoning": result.get("overall_reasoning", ""),
+                    "confidence": result.get("confidence"),
+                    "source": "portfolioai",
+                },
+                timeout=5,
+            )
+        resp = await asyncio.to_thread(_post)
+        return resp.ok
+    except Exception as exc:
+        logging.warning(f"trade-exec-app hand-off skipped for {result.get('ticker')}: {exc}")
+        return False
+
+
 def _signal_emoji(sig: str) -> str:
     sig = str(sig).lower()
     if sig == "positive":  return "🟢"
@@ -1292,6 +1327,19 @@ async def on_message(message: cl.Message):
             content=_format_inline_result(result),
             author=f"PortfolioAI — {company_name}",
         ).send()
+
+        # Hand off BUY/SELL calls to trade-exec-app — HOLD has nothing to trade.
+        rec = result.get("recommendation")
+        if rec in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
+            forwarded = await _forward_to_trade_exec(result)
+            if forwarded:
+                await cl.Message(
+                    content=(
+                        f"👉 **[Review & place this {rec} order for `{result.get('ticker','')}`]"
+                        f"({TRADE_EXEC_APP_URL})** — nothing executes until you confirm it there."
+                    ),
+                    author="PortfolioAI",
+                ).send()
 
     # ── Generate and attach Excel ────────────────────────────────────────────
     async with cl.Step(name="📊 Generating Excel report...") as step:

@@ -1,166 +1,172 @@
 # PortfolioAI
 
-An AI-powered equity research platform built with Chainlit, LlamaIndex, and the Anthropic Claude API. Analyses stocks using three independent ReAct agents — Quant, Fundamental (SEC filings), and News Sentiment — and delivers a **BUY / HOLD / SELL** recommendation with full reasoning and a downloadable Excel report.
+AI-powered equity research platform — live market dashboard + three-agent AI analysis (Quantitative, Fundamental/SEC, News Sentiment) — packaged as a **single deployable app** on Railway.
 
-**Live app:** [portfolio-production-a9a0.up.railway.app](https://portfolio-production-a9a0.up.railway.app/)
-
----
-
-## Features
-
-- **Multi-equity analysis** — enter one ticker, multiple tickers, company names, or upload a CSV/Excel file
-- **Three-agent pipeline** — Quant (Sharpe ratio, annual return, volatility), Fundamental (live SEC EDGAR 10-K filings via RAG), News (real-time sentiment via Tavily Search)
-- **On-screen result cards** — per-equity recommendation with metrics, reasoning, and source links as each agent completes
-- **Downloadable Excel report** — colour-coded BUY/HOLD/SELL, full reasoning, clickable SEC filing and news URLs
-- **DJIA market overview** — interactive price chart and market stats on startup
-- **Portfolio upload** — drop a CSV or Excel with a column of tickers or company names for bulk analysis
+**Live:** [portfolio-production-a9a0.up.railway.app](https://portfolio-production-a9a0.up.railway.app/)
 
 ---
 
-## Tech Stack
+## What's in the box
+
+| URL | What you get |
+|---|---|
+| `/` | Live DJIA market dashboard + native PortfolioAI chat panel |
+| `/chat` | Chainlit agent UI (original chat interface) |
+| `/api/*` | REST + SSE endpoints (DJIA, analysis stream, file upload) |
+| `/health` | Railway healthcheck |
+| `/api/docs` | Swagger API documentation |
+
+Everything runs from **one process, one port, one Railway service** — no separate servers.
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| UI | Chainlit ≥ 1.3.0 |
+| Unified server | FastAPI + `mount_chainlit()` + uvicorn |
+| Agent UI | Chainlit (mounted at `/chat`) |
+| Market dashboard | Vanilla HTML/JS — LightweightCharts + Yahoo Finance |
 | Agents | LlamaIndex ReActAgent + AgentWorkflow |
-| LLM | Anthropic Claude (via `llama-index-llms-anthropic`) |
-| Embeddings | HuggingFace (`BAAI/bge-small-en-v1.5` via `llama-index-embeddings-huggingface`) |
-| News | Tavily Search API (`llama-index-tools-tavily-research`) |
-| SEC Data | `llama-index-readers-sec-filings` + SEC EDGAR API |
-| Market Data | yfinance |
-| Charts | Plotly |
-| Reports | pandas + openpyxl |
-| Hosting | Railway (Dockerfile deploy) |
+| LLM | Anthropic Claude (direct API) |
+| Embeddings | HuggingFace `BAAI/bge-small-en-v1.5` |
+| News | Tavily Search API |
+| SEC data | SEC EDGAR API (live) |
+| Market data | yfinance |
+| Hosting | Railway (Dockerfile) |
 | CI/CD | GitHub Actions → Railway |
-| Code Quality | SonarQube |
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 portfolioai/
-├── app.py                          # Main application — agents + Chainlit UI
-├── requirements.txt                # Python dependencies
-├── Dockerfile                      # Container definition (port 8080)
-├── docker-compose.yml              # Local development only
-├── railway.toml                    # Railway deployment config
-├── .env.example                    # Environment variable template
-├── .dockerignore                   # Files excluded from Docker image
-├── .gitignore                      # Files excluded from git
-├── sonar-project.properties        # SonarQube analysis config
-├── setup_ec2.sh                    # Optional: EC2 self-hosted setup
-├── .github/
-│   └── workflows/
-│       └── deploy.yml              # GitHub Actions: SonarQube → Railway CI/CD
-├── .chainlit/
-│   └── config.toml                 # Chainlit UI configuration
-├── outputs/                        # Generated Excel reports (gitignored)
-└── client_input/                   # Private client portfolio files (gitignored)
+├── main.py                     ← NEW: unified FastAPI entry point
+├── app.py                      ← Chainlit agents + business logic (unchanged)
+├── portfolioai_dashboard.html  ← Market dashboard (served at /)
+├── requirements.txt            ← Updated: adds fastapi, uvicorn, multipart
+├── Dockerfile                  ← Updated: runs uvicorn main:app
+├── docker-compose.yml          ← Local dev
+├── railway.toml                ← Railway config
+├── .env.example                ← Environment variable template
+├── .github/workflows/
+│   └── deploy.yml              ← CI/CD: SonarQube → Railway
+├── outputs/                    ← Generated Excel reports (gitignored)
+└── client_input/               ← Private client files (gitignored)
 ```
 
 ---
 
-## Deployment (Railway — Production)
+## Deploy to Railway
 
-### Required GitHub Secrets
+### First time
 
-Before deploying, add these secrets to your GitHub repository:
-**Settings → Secrets and variables → Actions → New repository secret**
+1. **Fork / clone** the repo and push to GitHub
+2. **Create Railway project** → New Project → Deploy from GitHub repo
+3. **Set environment variables** in Railway dashboard → Variables:
 
-| Secret | Where to get it |
+   | Variable | Value |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | From [console.anthropic.com](https://console.anthropic.com) |
+   | `TAVILY_API_KEY` | From [app.tavily.com](https://app.tavily.com) |
+
+4. Railway detects the Dockerfile, builds, and deploys automatically
+5. Get your URL: Railway dashboard → Settings → Domains → Generate Domain
+
+### CI/CD (auto-deploy on push)
+
+Add these GitHub Secrets (Settings → Secrets → Actions):
+
+| Secret | Source |
 |---|---|
-| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) → API Keys |
-| `TAVILY_API_KEY` | [app.tavily.com](https://app.tavily.com) → API Keys |
-| `RAILWAY_TOKEN` | Railway dashboard → Project → Settings → Tokens |
-| `SONAR_TOKEN` | SonarQube → My Account → Security → Generate Token |
+| `ANTHROPIC_API_KEY` | Anthropic console |
+| `TAVILY_API_KEY` | Tavily dashboard |
+| `RAILWAY_TOKEN` | Railway → Project → Settings → Tokens |
+| `SONAR_TOKEN` | SonarQube → My Account → Security |
 
-### First-Time Railway Setup
-
-**1. Create a Railway account**
-Go to [railway.app](https://railway.app) and sign up with your GitHub account.
-
-**2. Create a new project**
-- Click **New Project** → **Deploy from GitHub repo**
-- Select your `portfolioai` repository
-- Railway detects the Dockerfile automatically and starts building
-
-**3. Set environment variables in Railway**
-Railway dashboard → your service → **Variables** → add:
-
-| Variable | Value |
-|---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `TAVILY_API_KEY` | Your Tavily API key |
-
-Railway injects `PORT` automatically — do **not** set it manually.
-
-**4. Get your public URL**
-Railway dashboard → your service → **Settings** → **Domains** → **Generate Domain**
-
-**5. CI/CD is now active**
-Every push to `main` automatically runs SonarQube analysis and, if it passes, deploys to Railway. No manual steps needed.
+Every push to `main` → SonarQube scan → Railway deploy.
 
 ---
 
-## Local Development
+## Local development
 
 ```bash
-# 1. Clone the repo
+# 1. Clone and set up environment
 git clone https://github.com/your-username/portfolioai.git
 cd portfolioai
-
-# 2. Create your .env file
 cp .env.example .env
-# Open .env and fill in your ANTHROPIC_API_KEY and TAVILY_API_KEY
+# Edit .env with your API keys
 
-# 3. Run with Docker Compose (recommended — mirrors production exactly)
+# 2a. Docker (mirrors production exactly — recommended)
 docker compose up --build
-# App available at http://localhost:8080
+# Open http://localhost:8080
 
-# 4. Or run directly with Python (faster for dev iteration)
+# 2b. Or run directly (faster iteration)
 pip install -r requirements.txt
-chainlit run app.py --host 0.0.0.0 --port 8080
-# App available at http://localhost:8080
+uvicorn main:app --host 0.0.0.0 --port 8080 --reload
+# Open http://localhost:8080
 ```
+
+> **Note:** `chainlit run app.py` no longer works as the primary entry point.
+> Use `uvicorn main:app` instead. The Chainlit UI is still available at `/chat`.
 
 ---
 
-## Environment Variables
+## How it works
+
+### Architecture
+
+```
+Browser
+  │
+  ├── GET /          → FastAPI serves portfolioai_dashboard.html
+  │                     Dashboard JS calls /api/* endpoints (same origin)
+  │
+  ├── GET /api/analyse/stream?ticker=AAPL   (SSE)
+  │     → FastAPI streams progress events as each agent completes
+  │     → Final event: structured BUY/HOLD/SELL result JSON
+  │
+  ├── GET /chat      → Chainlit React UI (full original chat experience)
+  │
+  └── GET /health    → Railway healthcheck
+```
+
+### Analysis flow
+
+1. User enters ticker(s) or uploads a CSV/Excel portfolio file
+2. Dashboard opens an SSE connection to `/api/analyse/stream`
+3. Three ReAct agents run concurrently via LlamaIndex `AgentWorkflow`:
+   - **Quant agent** — Sharpe ratio, annualised return, volatility (yfinance)
+   - **Analyst agent** — SEC EDGAR 10-K filing analysis via RAG
+   - **Pulse agent** — live news sentiment via Tavily Search
+4. Progress events stream to the dashboard, updating the card in real time
+5. Orchestrator synthesises signals → BUY / HOLD / SELL with confidence score
+6. Result card appears; Excel report available for download
+
+---
+
+## Environment variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | ✅ | Anthropic API key for Claude LLM |
-| `TAVILY_API_KEY` | ✅ | Tavily Search API key for real-time news |
-| `PORT` | Auto | Injected by Railway automatically — do not set |
+| `ANTHROPIC_API_KEY` | ✅ | Anthropic Claude API key |
+| `TAVILY_API_KEY` | ✅ | Tavily news search API key |
+| `PORT` | Auto | Injected by Railway — do not set |
 
-**No AWS credentials are required.** The app uses Anthropic directly and HuggingFace embeddings (downloaded at runtime, no API key needed).
-
----
-
-## How It Works
-
-1. User enters ticker(s), company names, or uploads a CSV/Excel portfolio file
-2. Each equity is resolved to a validated ticker symbol via yfinance search
-3. Three ReAct agents run in parallel per equity via LlamaIndex `AgentWorkflow`:
-   - **Quant Agent** — calculates Sharpe ratio, annualised return, and volatility from historical price data
-   - **Analyst Agent** — fetches the latest SEC 10-K filing via EDGAR and analyses risk factors, financials, and disclosures using RAG with HuggingFace embeddings
-   - **Pulse Agent** — searches real-time news and scores market sentiment via Tavily
-4. Orchestrator synthesises all three signals into a majority-vote recommendation (2/3 = 66% confidence, 3/3 = 100%)
-5. Results appear as cards on screen as each equity completes — no waiting for the full batch
-6. Excel report generated with colour-coded recommendations, full per-agent reasoning, and clickable source links
+No AWS credentials required.
 
 ---
 
-## Adding Private Client Files
+## Migrating from the previous two-server setup
 
-Drop PDF, Excel, or CSV files into the `client_input/` directory before starting the app. The Analyst agent indexes and searches them alongside SEC filings.
+Previously you needed:
+- `chainlit run app.py` on port 8080
+- `uvicorn fastapi_bridge:app` on port 8001
+- Open `portfolioai_dashboard.html` as a local file
 
-- **Local:** `./client_input/` is volume-mounted into the container via `docker-compose.yml`
-- **Railway:** Use Railway's persistent volume feature (attach to `/app/client_input`) or upload files to S3 and reference them via a custom env var
+Now you need:
+- `uvicorn main:app --port 8080` (or `docker compose up`)
+- Open `http://localhost:8080`
 
----
-
-## EC2 Self-Hosted Deployment (Optional)
-
-If you prefer to host on your own EC2 instance rather than Railway, run `setup_ec2.sh` on a fresh Amazon Linux 2023 instance. See the script for full instructions.
+`fastapi_bridge.py` is no longer needed and can be deleted.
