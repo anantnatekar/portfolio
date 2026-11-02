@@ -48,8 +48,8 @@ tests/
 .DS_Store
 setup_ec2.sh
 node_modules/
-portfolioai_dashboard.html
-fastapi_bridge.py
+#portfolioai_dashboard.html
+#fastapi_bridge.py
 
 # ─── SonarQube ────────────────────────────────────────────────────────────────
 sonar-project.properties
