@@ -44,6 +44,8 @@ from app import (
     get_djia_data,
     get_quant_metrics,
     resolve_ticker,
+    _forward_to_trade_exec,
+    TRADE_EXEC_APP_URL,
 )
 
 logging.basicConfig(
@@ -376,6 +378,13 @@ async def analyse_stream(
             await asyncio.sleep(0)
 
             result = await bot.analyse_ticker(resolved_ticker, company)
+
+            # Same hand-off the Chainlit chat path uses — kept here too since
+            # the dashboard calls this endpoint directly, not through chat.
+            if result.get("recommendation") in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
+                forwarded = await _forward_to_trade_exec(result)
+                if forwarded:
+                    result["trade_exec_url"] = TRADE_EXEC_APP_URL
 
             yield _sse("progress", {"step": "fund_done",
                                     "ticker": resolved_ticker})

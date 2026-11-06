@@ -573,7 +573,7 @@ const nowStr=()=>new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2
 /* ── BRIDGE ── */
 async function checkBridge(){
   try{
-    const r=await fetch(`/health`,{signal:AbortSignal.timeout(2500)});
+    const r=await fetch(`/health`,{signal:AbortSignal.timeout(8000)});
     setBridge(r.ok); return r.ok;
   }catch{setBridge(false);return false;}
 }
@@ -690,6 +690,7 @@ function renderResult(r){
     </div>
     <div class="reasoning-section"><div class="reasoning-label">Synthesis</div><div class="reasoning-text">${r.overall_reasoning||'—'}</div></div>
     ${critiqueHtml}
+    ${r.trade_exec_url?`<div class="links-row"><a class="result-link" href="${r.trade_exec_url}" target="_blank" style="font-weight:700;">👉 Review &amp; place this ${rec} order</a></div>`:''}
     <button class="details-toggle" onclick="toggleDet('${did}')"><span class="chv">▾</span>&nbsp;Agent details</button>
     <div class="details-body" id="db_${did}">
       <div class="detail-agent"><div class="detail-agent-name">📈 Quant</div><div class="detail-agent-text">${r.quant_reasoning||'—'}</div></div>
