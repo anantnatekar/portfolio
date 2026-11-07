@@ -381,10 +381,16 @@ async def analyse_stream(
 
             # Same hand-off the Chainlit chat path uses — kept here too since
             # the dashboard calls this endpoint directly, not through chat.
-            if result.get("recommendation") in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
-                forwarded = await _forward_to_trade_exec(result)
-                if forwarded:
-                    result["trade_exec_url"] = TRADE_EXEC_APP_URL
+            # Isolated in its own try/except deliberately: this block must
+            # NEVER be able to turn a successful analysis into a stream
+            # error that trips the dashboard's demo-mode fallback.
+            try:
+                if result.get("recommendation") in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
+                    forwarded = await _forward_to_trade_exec(result)
+                    if forwarded:
+                        result["trade_exec_url"] = TRADE_EXEC_APP_URL
+            except Exception as exc:
+                log.warning("trade-exec-app hand-off failed, continuing without it: %s", exc)
 
             yield _sse("progress", {"step": "fund_done",
                                     "ticker": resolved_ticker})
