@@ -386,9 +386,9 @@ async def analyse_stream(
             # error that trips the dashboard's demo-mode fallback.
             try:
                 if result.get("recommendation") in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
-                    forwarded = await _forward_to_trade_exec(result)
-                    if forwarded:
-                        result["trade_exec_url"] = TRADE_EXEC_APP_URL
+                    rec_id = await _forward_to_trade_exec(result)
+                    if rec_id:
+                        result["trade_exec_url"] = f"{TRADE_EXEC_APP_URL}/?rec={rec_id}"
             except Exception as exc:
                 log.warning("trade-exec-app hand-off failed, continuing without it: %s", exc)
 

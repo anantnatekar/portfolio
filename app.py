@@ -84,6 +84,7 @@ import logging
 import json
 import re
 from pathlib import Path
+from typing import Optional
 import pandas as pd
 import yfinance as yf
 import numpy as np
@@ -1069,16 +1070,18 @@ def _recommendation_emoji(rec: str) -> str:
 TRADE_EXEC_APP_URL = os.environ.get("TRADE_EXEC_APP_URL", "").rstrip("/")
 
 
-async def _forward_to_trade_exec(result: dict) -> bool:
+async def _forward_to_trade_exec(result: dict) -> Optional[str]:
     """
     Best-effort hand-off of a BUY/SELL result to trade-exec-app, so it's
     sitting there ready to review the moment the user clicks through.
+    Returns the new recommendation's id on success (so callers can deep-link
+    straight to it, rather than the whole queue), or None on any failure.
     Deliberately fails silently — a trade-exec-app outage must never break
     PortfolioAI's own analysis flow, which is why this is always called
     after the result has already been shown to the user, never before.
     """
     if not TRADE_EXEC_APP_URL:
-        return False
+        return None
     try:
         import requests
 
@@ -1095,10 +1098,12 @@ async def _forward_to_trade_exec(result: dict) -> bool:
                 timeout=5,
             )
         resp = await asyncio.to_thread(_post)
-        return resp.ok
+        if not resp.ok:
+            return None
+        return resp.json().get("id")
     except Exception as exc:
         logging.warning(f"trade-exec-app hand-off skipped for {result.get('ticker')}: {exc}")
-        return False
+        return None
 
 
 def _signal_emoji(sig: str) -> str:
@@ -1329,17 +1334,22 @@ async def on_message(message: cl.Message):
         ).send()
 
         # Hand off BUY/SELL calls to trade-exec-app — HOLD has nothing to trade.
-        rec = result.get("recommendation")
-        if rec in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
-            forwarded = await _forward_to_trade_exec(result)
-            if forwarded:
-                await cl.Message(
-                    content=(
-                        f"👉 **[Review & place this {rec} order for `{result.get('ticker','')}`]"
-                        f"({TRADE_EXEC_APP_URL})** — nothing executes until you confirm it there."
-                    ),
-                    author="PortfolioAI",
-                ).send()
+        # Isolated so a hand-off hiccup can never break the chat response itself.
+        try:
+            rec = result.get("recommendation")
+            if rec in ("BUY", "SELL") and TRADE_EXEC_APP_URL:
+                rec_id = await _forward_to_trade_exec(result)
+                if rec_id:
+                    trade_url = f"{TRADE_EXEC_APP_URL}/?rec={rec_id}"
+                    await cl.Message(
+                        content=(
+                            f"👉 **[Review & place this {rec} order for `{result.get('ticker','')}`]"
+                            f"({trade_url})** — nothing executes until you confirm it there."
+                        ),
+                        author="PortfolioAI",
+                    ).send()
+        except Exception as exc:
+            logging.warning(f"trade-exec-app hand-off failed, continuing without it: {exc}")
 
     # ── Generate and attach Excel ────────────────────────────────────────────
     async with cl.Step(name="📊 Generating Excel report...") as step:
